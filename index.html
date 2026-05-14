@@ -89,6 +89,117 @@
     });
 
     /* ─────────────────────────────────────────────────────────────
+       DATA LAYER — Supabase → app-shape mappers
+       ─────────────────────────────────────────────────────────── */
+
+    // Map raw DB row → the shape the UI components expect (same as the mock BOOKINGS)
+    const mapDbReservation = (r) => {
+      const adults   = r.ospiti_adulti   ?? 0;
+      const children = r.ospiti_bambini  ?? 0;
+      const ci = r.check_in;
+      const co = r.check_out;
+      // Compute nights from dates if not stored
+      let nights = r.notti;
+      if (!nights && ci && co) {
+        const a = new Date(ci), b = new Date(co);
+        nights = Math.round((b - a) / 86400000);
+      }
+      // Status mapping (DB italiano → UI inglese)
+      const statusMap = {
+        'confermata': 'confirmed',
+        'cancellata': 'cancelled',
+        'in_attesa':  'pending',
+      };
+      // Channel: DB già in inglese ('booking'), normalizzo le altre varianti possibili
+      const ch = (r.canale_provenienza || '').toLowerCase().trim();
+      const channelMap = {
+        'booking': 'booking',
+        'booking.com': 'booking',
+        'airbnb': 'airbnb',
+        'vrbo': 'vrbo',
+        'homeaway': 'vrbo',
+      };
+      // Nazionalità → codice ISO 2 lettere se possibile (mock heuristic)
+      const natRaw = (r.guests?.nazionalita || '').trim().toUpperCase();
+      const country = natRaw.length === 2 ? natRaw :
+        ({ 'ITALIA':'IT','ITALY':'IT','GERMANIA':'DE','GERMANY':'DE','FRANCIA':'FR','FRANCE':'FR',
+           'SPAGNA':'ES','SPAIN':'ES','REGNO UNITO':'GB','UNITED KINGDOM':'GB','GRAN BRETAGNA':'GB',
+           'STATI UNITI':'US','USA':'US','POLONIA':'PL','POLAND':'PL','GIAPPONE':'JP','JAPAN':'JP',
+        })[natRaw] || '';
+      return {
+        code: r.codice_prenotazione_ota || r.id,
+        id: r.id,
+        apartment_id: r.property_id,
+        channel: channelMap[ch] || 'booking',
+        status: statusMap[r.stato] || 'confirmed',
+        check_in: ci,
+        check_out: co,
+        guests: adults + children,
+        guests_adults: adults,
+        guests_children: children,
+        rooms: 1, // not in schema yet — placeholder
+        total_eur: Number(r.prezzo_totale ?? 0),
+        first_name: r.guests?.nome    || '',
+        last_name:  r.guests?.cognome || 'Ospite',
+        phone:      r.guests?.telefono || '',
+        email:      r.guests?.email    || '',
+        country,
+        booking_date: (r.created_at || '').slice(0, 10),
+        check_in_time:  null, // not in schema — TBD if added later
+        check_out_time: null,
+        channel_note:   r.note || '',
+        nights,
+      };
+    };
+
+    const mapDbProperty = (p) => {
+      // Build short label by taking first 3 distinctive chars (e.g. "RDP" from "Residenza dei Pontefici")
+      const initials = (p.nome || '').split(/\s+/).filter(w => w[0] && /[A-Za-z]/.test(w[0]))
+        .map(w => w[0].toUpperCase()).join('').slice(0, 3) || 'APT';
+      return {
+        id: p.id,
+        name: p.nome,
+        address: p.indirizzo,
+        short: p.nome,
+        code: initials,
+        status: p.status,
+        sync_attivo: p.sync_attivo,
+        posti_letto: p.posti_letto,
+      };
+    };
+
+    /**
+     * Fetch reservations in a date range, with property + guest joined.
+     * @param {object} opts { fromDate, toDate, status }  all ISO YYYY-MM-DD
+     */
+    const fetchReservations = async ({ fromDate, toDate, status } = {}) => {
+      let q = supabaseClient
+        .from('reservations')
+        .select(`
+          *,
+          properties ( id, nome, indirizzo ),
+          guests     ( id, nome, cognome, telefono, email, nazionalita )
+        `);
+      if (status)   q = q.eq('stato', status);
+      // overlap with [fromDate, toDate]: check_out >= fromDate AND check_in <= toDate
+      if (fromDate) q = q.gte('check_out', fromDate);
+      if (toDate)   q = q.lte('check_in',  toDate);
+      q = q.order('check_in', { ascending: true });
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data || []).map(mapDbReservation);
+    };
+
+    const fetchProperties = async () => {
+      const { data, error } = await supabaseClient
+        .from('properties')
+        .select('id, nome, indirizzo, status, sync_attivo, posti_letto')
+        .order('nome', { ascending: true });
+      if (error) throw error;
+      return (data || []).map(mapDbProperty);
+    };
+
+    /* ─────────────────────────────────────────────────────────────
        MOCK DATA
        ─────────────────────────────────────────────────────────── */
 
@@ -747,8 +858,13 @@
       </button>
     );
 
-    const BookingDetail = ({ code, onBack }) => {
-      const booking = useMemo(() => BOOKINGS.find(b => b.code === code), [code]);
+    const BookingDetail = ({ code, bookingProp, propertyProp, onBack }) => {
+      const { isCleaning } = useAuth();
+      // Use real booking object passed in, otherwise fall back to mock by code
+      const booking = useMemo(
+        () => bookingProp || BOOKINGS.find(b => b.code === code),
+        [code, bookingProp]
+      );
       const [tab, setTab] = useState('dettagli');
 
       // Internal notes persisted in localStorage by booking code
@@ -772,7 +888,7 @@
         );
       }
 
-      const apt = APARTMENTS.find(a => a.id === booking.apartment_id);
+      const apt = propertyProp || APARTMENTS.find(a => a.id === booking.apartment_id);
       const meta = CHANNEL_META[booking.channel];
       const statusMeta = STATUS_META[booking.status] || STATUS_META.confirmed;
       const nights = diffDays(parseISO(booking.check_in), parseISO(booking.check_out));
@@ -819,11 +935,13 @@
                 <ChannelBadge channel={booking.channel} />
                 <div className="flex-1 min-w-0">
                   <div className="text-[15px] font-semibold text-slate-900">Prenotazione {booking.code}</div>
-                  <div className="text-sm text-slate-500 mt-0.5 truncate">{apt.name}</div>
+                  <div className="text-sm text-slate-500 mt-0.5 truncate">{apt ? apt.name : '—'}</div>
                 </div>
-                <button className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center flex-shrink-0">
-                  <Icon name="message-circle" className="w-5 h-5 text-slate-600" />
-                </button>
+                {!isCleaning && (
+                  <button className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center flex-shrink-0">
+                    <Icon name="message-circle" className="w-5 h-5 text-slate-600" />
+                  </button>
+                )}
               </div>
               <div className="flex items-center justify-between mt-3">
                 <div className="flex items-center gap-4 text-slate-500 text-sm">
@@ -837,9 +955,11 @@
                     <Icon name="moon" className="w-4 h-4" /> {nights}
                   </span>
                 </div>
-                <div className="text-primary-600 font-semibold text-[15px]">
-                  Tot {fmtMoney(booking.total_eur)} €
-                </div>
+                {!isCleaning && (
+                  <div className="text-primary-600 font-semibold text-[15px]">
+                    Tot {fmtMoney(booking.total_eur)} €
+                  </div>
+                )}
               </div>
             </div>
 
@@ -877,30 +997,32 @@
                     <DetailRow label="Ospiti" last>{booking.guests}</DetailRow>
                   </div>
 
-                  {/* Card 2: dati ospite */}
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900 mb-2 px-1">Dati ospite</h3>
-                    <div className="bg-white rounded-2xl border border-slate-100 p-4">
-                      <div className="flex items-center justify-between py-2 border-b border-slate-100">
-                        <span className="text-[15px] text-slate-600">Telefono</span>
-                        <a href={`tel:${booking.phone}`} className="text-[15px] text-slate-900 font-medium">
-                          {booking.phone}
-                        </a>
+                  {/* Card 2: dati ospite — hidden for cleaning role */}
+                  {!isCleaning && (
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900 mb-2 px-1">Dati ospite</h3>
+                      <div className="bg-white rounded-2xl border border-slate-100 p-4">
+                        <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                          <span className="text-[15px] text-slate-600">Telefono</span>
+                          <a href={`tel:${booking.phone}`} className="text-[15px] text-slate-900 font-medium">
+                            {booking.phone}
+                          </a>
+                        </div>
+                        <div className="flex items-center justify-between py-2">
+                          <span className="text-[15px] text-slate-600">Email</span>
+                          <a
+                            href={`mailto:${booking.email}`}
+                            className="text-[15px] text-slate-900 font-medium truncate ml-3 max-w-[60%] text-right"
+                          >
+                            {booking.email}
+                          </a>
+                        </div>
+                        <button className="mt-3 w-full py-3 rounded-full bg-primary-50 text-primary-600 font-semibold text-[15px] hover:bg-primary-100 transition-colors">
+                          Contatta l'ospite
+                        </button>
                       </div>
-                      <div className="flex items-center justify-between py-2">
-                        <span className="text-[15px] text-slate-600">Email</span>
-                        <a
-                          href={`mailto:${booking.email}`}
-                          className="text-[15px] text-slate-900 font-medium truncate ml-3 max-w-[60%] text-right"
-                        >
-                          {booking.email}
-                        </a>
-                      </div>
-                      <button className="mt-3 w-full py-3 rounded-full bg-primary-50 text-primary-600 font-semibold text-[15px] hover:bg-primary-100 transition-colors">
-                        Contatta l'ospite
-                      </button>
                     </div>
-                  </div>
+                  )}
 
                   {/* Card 5: note interne (editable, persisted in localStorage) */}
                   <div>
@@ -1308,26 +1430,64 @@
       const todayISO = fmtISO(today);
       const [section, setSection] = useState('arrivals'); // 'arrivals' | 'departures' | 'inhouse'
 
+      // Live data from Supabase
+      const [reservations, setReservations] = useState([]);
+      const [properties, setProperties]     = useState([]);
+      const [loadingData, setLoadingData]   = useState(true);
+      const [fetchError, setFetchError]     = useState(null);
+
+      // Load today's relevant reservations + properties on mount
+      useEffect(() => {
+        let cancelled = false;
+        (async () => {
+          setLoadingData(true);
+          setFetchError(null);
+          try {
+            // Window = today only — covers arrivals, departures, in-house
+            const [resv, props] = await Promise.all([
+              fetchReservations({ fromDate: todayISO, toDate: todayISO, status: 'confermata' }),
+              fetchProperties(),
+            ]);
+            if (cancelled) return;
+            setReservations(resv);
+            setProperties(props);
+          } catch (err) {
+            if (!cancelled) {
+              console.error('Home fetch failed:', err);
+              setFetchError(err.message || 'Errore di caricamento');
+            }
+          } finally {
+            if (!cancelled) setLoadingData(false);
+          }
+        })();
+        return () => { cancelled = true; };
+      }, [todayISO]);
+
+      // Build a map property_id → property (for quick lookup in cards)
+      const propsMap = useMemo(() => {
+        const m = new Map();
+        properties.forEach(p => m.set(p.id, p));
+        return m;
+      }, [properties]);
+
       // Categorize bookings relative to today
       const { arrivals, departures, inhouse } = useMemo(() => {
         const a = [], d = [], h = [];
-        BOOKINGS.forEach(b => {
+        reservations.forEach(b => {
           if (b.status === 'cancelled') return;
           if (b.check_in === todayISO) a.push(b);
           if (b.check_out === todayISO) d.push(b);
-          // in-house = check-in <= today < check-out, excluding today's arrivals/departures
           const ci = parseISO(b.check_in);
           const co = parseISO(b.check_out);
           if (ci < today && co > today) h.push(b);
         });
-        // sort by surname for in-house, by check_in_time then surname for the rest
         const byTime = (x, y) => (x.check_in_time || '99:99').localeCompare(y.check_in_time || '99:99');
         const byName = (x, y) => x.last_name.localeCompare(y.last_name);
         a.sort(byTime);
         d.sort(byTime);
         h.sort(byName);
         return { arrivals: a, departures: d, inhouse: h };
-      }, [todayISO]);
+      }, [reservations, todayISO]);
 
       const sections = [
         { id: 'arrivals',   label: 'Arrivi',      list: arrivals,   icon: 'log-in',  color: 'bg-emerald-500',  light: 'bg-emerald-50',  text: 'text-emerald-600' },
@@ -1413,25 +1573,43 @@
                 <h2 className="text-[18px] font-bold text-slate-900">
                   {activeSection.label} di oggi
                 </h2>
-                {activeList.length > 0 && (
+                {!loadingData && activeList.length > 0 && (
                   <span className={`text-[12px] font-semibold px-2 py-0.5 rounded-full ${activeSection.light} ${activeSection.text}`}>
                     {activeList.length}
                   </span>
                 )}
               </div>
 
-              {activeList.length === 0 ? (
+              {loadingData ? (
+                <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center">
+                  <div className="w-8 h-8 mx-auto rounded-full border-4 border-slate-100 border-t-primary-600 animate-spin" />
+                  <p className="text-sm text-slate-500 mt-3">Caricamento prenotazioni…</p>
+                </div>
+              ) : fetchError ? (
+                <div className="bg-white rounded-2xl border border-danger/20 p-6 text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-danger/10 flex items-center justify-center mx-auto mb-2">
+                    <Icon name="alert-circle" className="w-6 h-6 text-danger" />
+                  </div>
+                  <h3 className="text-base font-semibold text-slate-900">Errore di caricamento</h3>
+                  <p className="text-xs text-slate-500 mt-1 break-words">{fetchError}</p>
+                </div>
+              ) : activeList.length === 0 ? (
                 <EmptyToday section={activeSection} />
               ) : (
                 <div className="space-y-2 pb-6">
-                  {activeList.map(b => (
-                    <TodayCard
-                      key={b.code}
-                      booking={b}
-                      kind={section}
-                      onClick={() => onOpenBooking(b.code)}
-                    />
-                  ))}
+                  {activeList.map(b => {
+                    const prop = propsMap.get(b.apartment_id);
+                    return (
+                      <TodayCard
+                        key={b.code}
+                        booking={b}
+                        property={prop}
+                        kind={section}
+                        isCleaning={isCleaning}
+                        onClick={() => onOpenBooking(b, prop)}
+                      />
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1460,8 +1638,7 @@
     };
 
     // Card for a single arrival/departure/inhouse entry
-    const TodayCard = React.memo(({ booking, kind, onClick }) => {
-      const apt = APARTMENTS.find(a => a.id === booking.apartment_id);
+    const TodayCard = React.memo(({ booking, property, kind, isCleaning, onClick }) => {
       const today = startOfDay(new Date());
       const nightsLeft = kind === 'inhouse'
         ? diffDays(today, parseISO(booking.check_out))
@@ -1493,7 +1670,7 @@
                 )}
               </div>
               <div className="text-[13px] text-slate-600 truncate mt-0.5">
-                {apt ? apt.name : ''}
+                {property ? property.name : '—'}
               </div>
               <div className="flex items-center gap-1.5 text-[12px] text-slate-500 mt-1">
                 <Icon name="calendar" className="w-3.5 h-3.5" />
@@ -1523,12 +1700,14 @@
               >
                 {actionLabel}
               </span>
-              <span
-                onClick={(e) => { e.stopPropagation(); /* placeholder for chat */ }}
-                className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center"
-              >
-                <Icon name="message-circle" className="w-4 h-4 text-slate-600" />
-              </span>
+              {!isCleaning && (
+                <span
+                  onClick={(e) => { e.stopPropagation(); /* placeholder for chat */ }}
+                  className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center"
+                >
+                  <Icon name="message-circle" className="w-4 h-4 text-slate-600" />
+                </span>
+              )}
             </div>
           )}
         </button>
@@ -2130,13 +2309,26 @@
       const { signOut, profile } = useAuth();
       const [route, setRoute] = useState({ name: 'home' });
 
-      // openBooking remembers where we came from so the back button returns there
-      const openBooking = (code, origin) => setRoute({ name: 'booking', code, origin });
+      // openBooking remembers where we came from so the back button returns there.
+      // For real (Supabase) data, the booking and property objects are passed through
+      // so the detail page can render them directly without a second fetch.
+      const openBooking = (codeOrPayload, origin) => {
+        const payload = typeof codeOrPayload === 'string'
+          ? { code: codeOrPayload }
+          : codeOrPayload;
+        setRoute({
+          name: 'booking',
+          code: payload.code,
+          bookingProp: payload.booking,
+          propertyProp: payload.property,
+          origin,
+        });
+      };
 
       const renderPage = () => {
         switch (route.name) {
           case 'home':
-            return <Home onOpenBooking={(code) => openBooking(code, { name: 'home' })} />;
+            return <Home onOpenBooking={(b, p) => openBooking({ code: b.code, booking: b, property: p }, { name: 'home' })} />;
           case 'planner':
             return <Planner onOpenBooking={(code) => openBooking(code, { name: 'planner' })} />;
           case 'calendari':
@@ -2156,7 +2348,9 @@
           case 'booking':
             return <BookingDetail
                      code={route.code}
-                     onBack={() => setRoute(route.origin || { name: 'planner' })}
+                     bookingProp={route.bookingProp}
+                     propertyProp={route.propertyProp}
+                     onBack={() => setRoute(route.origin || { name: 'home' })}
                    />;
           default:
             return null;
