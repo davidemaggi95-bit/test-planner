@@ -1342,31 +1342,26 @@
 
           {/* Scrollable body */}
           <div className="flex-1 overflow-y-auto">
-            {/* Three summary cards — horizontal scroll */}
+            {/* Three summary cards — fixed 3-column grid (no scroll) */}
             <div className="px-4 pt-4">
-              <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-4 px-4 pb-2">
+              <div className="grid grid-cols-3 gap-2">
                 {sections.map(s => {
                   const isActive = section === s.id;
                   return (
                     <button
                       key={s.id}
                       onClick={() => setSection(s.id)}
-                      className={`flex-shrink-0 w-[150px] rounded-2xl p-4 text-left transition border-2 ${
+                      className={`rounded-2xl p-3 text-left transition border-2 ${
                         isActive
-                          ? `bg-white border-primary-600 shadow-md`
-                          : `bg-white border-transparent hover:border-slate-200`
+                          ? 'bg-white border-primary-600 shadow-md'
+                          : 'bg-white border-transparent hover:border-slate-200'
                       }`}
                     >
-                      <div className={`w-9 h-9 rounded-xl ${s.light} flex items-center justify-center mb-2.5`}>
-                        <Icon name={s.icon} className={`w-5 h-5 ${s.text}`} />
+                      <div className={`w-8 h-8 rounded-lg ${s.light} flex items-center justify-center mb-2`}>
+                        <Icon name={s.icon} className={`w-4 h-4 ${s.text}`} />
                       </div>
-                      <div className="text-[12px] font-medium text-slate-500">{s.label}</div>
-                      <div className="text-[28px] font-bold text-slate-900 leading-none mt-1">{s.list.length}</div>
-                      <div className="text-[11px] text-slate-400 mt-1">
-                        {s.list.length === 0 ? 'oggi nessuno' :
-                         s.list.length === 1 ? 'oggi 1 ospite' :
-                         `oggi ${s.list.length} ospiti`}
-                      </div>
+                      <div className="text-[11px] font-medium text-slate-500 leading-tight">{s.label}</div>
+                      <div className="text-[22px] font-bold text-slate-900 leading-none mt-1">{s.list.length}</div>
                     </button>
                   );
                 })}
@@ -1460,6 +1455,12 @@
               </div>
               <div className="text-[13px] text-slate-600 truncate mt-0.5">
                 {apt ? apt.name : ''}
+              </div>
+              <div className="flex items-center gap-1.5 text-[12px] text-slate-500 mt-1">
+                <Icon name="calendar" className="w-3.5 h-3.5" />
+                <span>
+                  {fmtDateRangeShort(booking.check_in, booking.check_out)}
+                </span>
               </div>
               <div className="flex items-center gap-3 text-[12px] text-slate-500 mt-1">
                 <span className="flex items-center gap-1">
