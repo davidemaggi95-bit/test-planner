@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#2563EB" />
+  <title>PMS Dashboard</title>
+
+  <!-- Tailwind via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50:  '#EFF6FF',
+              100: '#DBEAFE',
+              200: '#BFDBFE',
+              500: '#3B82F6',
+              600: '#2563EB',  // header blue
+              700: '#1D4ED8',
+            },
+            booking: '#003B95',
+            airbnb:  '#FF385C',
+            vrbo:    '#0F61B5',
+            ok:      '#16A34A',
+            warn:    '#F59E0B',
+            danger:  '#DC2626',
+          },
+          fontFamily: {
+            sans: ['-apple-system','BlinkMacSystemFont','SF Pro Text','Segoe UI','Roboto','sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- React + ReactDOM + Babel -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    html, body, #root { height: 100%; }
+    body {
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+      background: #F8FAFC;
+    }
+    /* hide scrollbars on planner timeline but keep functionality */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* smooth date picker animation */
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .animate-slide-down { animation: slideDown 0.18s ease-out; }
+  </style>
+</head>
+<body class="font-sans text-slate-900 antialiased select-none">
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+    /* ─────────────────────────────────────────────────────────────
+       MOCK DATA
+       ─────────────────────────────────────────────────────────── */
+
+    const APARTMENTS = [
+      { id: 'a1', name: '21 Manara Trastevere',  short: '21 Manara' },
+      { id: 'a2', name: '35 Gozzadini',          short: '35 Gozzadini' },
+      { id: 'a3', name: '42 Gandino Superior',   short: '42 Gandino Sup.' },
+      { id: 'a4', name: '50 Gandino Deluxe',     short: '50 Gandino Dlx.' },
+      { id: 'a5', name: '63 Brancaleone',        short: '63 Brancaleone' },
+      { id: 'a6', name: 'EV Vatican',            short: 'EV Vatican' },
+      { id: 'a7', name: 'R. dei Pontefici',      short: 'R. Pontefici' },
+      { id: 'a8', name: 'St. Peter Station',     short: 'St. Peter St.' },
+      { id: 'a9', name: 'St. Peter Deluxe',      short: 'St. Peter Dlx.' },
+    ];
+
+    // helper: build YYYY-MM-DD
+    const ymd = (y, m, d) => `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+
+    /* Booking mock — channel: 'booking' | 'airbnb' | 'vrbo'
+       Designed to span historical (Jan-Apr 2026), current (May 2026), future. */
+    const BOOKINGS = [
+      // Past
+      { code: 'BKG-2026-001', apartment_id: 'a1', channel: 'booking', status: 'confirmed',
+        check_in: '2026-01-12', check_out: '2026-01-18', guests: 2,
+        first_name: 'Marco', last_name: 'Rossi' },
+      { code: 'AIR-2026-014', apartment_id: 'a3', channel: 'airbnb',  status: 'confirmed',
+        check_in: '2026-02-03', check_out: '2026-02-09', guests: 4,
+        first_name: 'Sophie', last_name: 'Laurent' },
+      { code: 'BKG-2026-027', apartment_id: 'a7', channel: 'booking', status: 'confirmed',
+        check_in: '2026-03-15', check_out: '2026-03-22', guests: 3,
+        first_name: 'Hans', last_name: 'Müller' },
+      { code: 'VRB-2026-008', apartment_id: 'a5', channel: 'vrbo',    status: 'confirmed',
+        check_in: '2026-04-08', check_out: '2026-04-14', guests: 5,
+        first_name: 'James', last_name: 'Wilson' },
+      { code: 'AIR-2026-031', apartment_id: 'a8', channel: 'airbnb',  status: 'confirmed',
+        check_in: '2026-04-22', check_out: '2026-04-28', guests: 2,
+        first_name: 'Yuki',  last_name: 'Tanaka' },
+      { code: 'BKG-2026-049', apartment_id: 'a2', channel: 'booking', status: 'confirmed',
+        check_in: '2026-05-02', check_out: '2026-05-08', guests: 2,
+        first_name: 'Anna',  last_name: 'Kowalski' },
+
+      // Current / spanning today (May 14, 2026)
+      { code: 'BKG-2026-052', apartment_id: 'a3', channel: 'booking', status: 'confirmed',
+        check_in: '2026-05-11', check_out: '2026-05-18', guests: 3,
+        first_name: 'Beatrice', last_name: 'Schulze' },
+      { code: 'AIR-2026-044', apartment_id: 'a6', channel: 'airbnb',  status: 'confirmed',
+        check_in: '2026-05-13', check_out: '2026-05-17', guests: 2,
+        first_name: 'Paul',  last_name: 'Dubois' },
+      { code: 'VRB-2026-015', apartment_id: 'a9', channel: 'vrbo',    status: 'confirmed',
+        check_in: '2026-05-10', check_out: '2026-05-16', guests: 4,
+        first_name: 'Carlos', last_name: 'García' },
+
+      // Future
+      { code: 'BKG-2026-058', apartment_id: 'a3', channel: 'booking', status: 'confirmed',
+        check_in: '2026-05-19', check_out: '2026-05-24', guests: 2,
+        first_name: 'Emma',  last_name: 'Johnson' },
+      { code: 'AIR-2026-051', apartment_id: 'a1', channel: 'airbnb',  status: 'confirmed',
+        check_in: '2026-05-20', check_out: '2026-05-25', guests: 3,
+        first_name: 'Lucas', last_name: 'Martin' },
+      { code: 'BKG-2026-063', apartment_id: 'a4', channel: 'booking', status: 'confirmed',
+        check_in: '2026-05-22', check_out: '2026-05-28', guests: 4,
+        first_name: 'Olivia', last_name: 'Brown' },
+      { code: 'VRB-2026-019', apartment_id: 'a7', channel: 'vrbo',    status: 'confirmed',
+        check_in: '2026-05-25', check_out: '2026-06-02', guests: 2,
+        first_name: 'David', last_name: 'Smith' },
+      { code: 'AIR-2026-058', apartment_id: 'a5', channel: 'airbnb',  status: 'confirmed',
+        check_in: '2026-06-01', check_out: '2026-06-07', guests: 5,
+        first_name: 'Marie', last_name: 'Lefebvre' },
+      { code: 'BKG-2026-071', apartment_id: 'a8', channel: 'booking', status: 'confirmed',
+        check_in: '2026-05-16', check_out: '2026-05-21', guests: 2,
+        first_name: 'Klaus', last_name: 'Weber' },
+    ];
+
+    /* ─────────────────────────────────────────────────────────────
+       DATE UTILS
+       ─────────────────────────────────────────────────────────── */
+
+    const MONTHS_IT  = ['gennaio','febbraio','marzo','aprile','maggio','giugno',
+                        'luglio','agosto','settembre','ottobre','novembre','dicembre'];
+    const MONTHS_SHORT = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+    const DAYS_LONG  = ['domenica','lunedì','martedì','mercoledì','giovedì','venerdì','sabato'];
+    const DAYS_SHORT = ['D','L','M','M','G','V','S'];
+
+    const parseISO = (s) => {
+      const [y,m,d] = s.split('-').map(Number);
+      return new Date(y, m-1, d);
+    };
+    const fmtISO = (d) => ymd(d.getFullYear(), d.getMonth()+1, d.getDate());
+    const addDays = (d, n) => {
+      const r = new Date(d); r.setDate(r.getDate()+n); return r;
+    };
+    const startOfDay = (d) => { const r = new Date(d); r.setHours(0,0,0,0); return r; };
+    const isSameDay  = (a,b) => fmtISO(a) === fmtISO(b);
+    const diffDays   = (a,b) => Math.round((startOfDay(b) - startOfDay(a)) / 86400000);
+
+    const fmtItalianFull = (d) =>
+      `${DAYS_LONG[d.getDay()]} ${d.getDate()} ${MONTHS_IT[d.getMonth()]} ${d.getFullYear()}`;
+
+    /* ─────────────────────────────────────────────────────────────
+       CHANNEL BADGE
+       ─────────────────────────────────────────────────────────── */
+
+    const CHANNEL_META = {
+      booking: { label: 'B.', bg: 'bg-booking', color: 'text-white', pill: 'bg-booking' },
+      airbnb:  { label: 'A.', bg: 'bg-airbnb',  color: 'text-white', pill: 'bg-airbnb' },
+      vrbo:    { label: 'V.', bg: 'bg-vrbo',    color: 'text-white', pill: 'bg-vrbo' },
+    };
+
+    /* ─────────────────────────────────────────────────────────────
+       ICON HELPER (lucide)
+       ─────────────────────────────────────────────────────────── */
+    const Icon = ({ name, className = 'w-5 h-5', strokeWidth = 2 }) => {
+      const ref = useRef(null);
+      useEffect(() => {
+        if (ref.current) {
+          ref.current.innerHTML = '';
+          const el = document.createElement('i');
+          el.setAttribute('data-lucide', name);
+          el.className = className;
+          if (strokeWidth) el.setAttribute('stroke-width', strokeWidth);
+          ref.current.appendChild(el);
+          window.lucide && window.lucide.createIcons({ attrs: { 'stroke-width': strokeWidth } });
+        }
+      }, [name, className, strokeWidth]);
+      return <span ref={ref} className="inline-flex" />;
+    };
+
+    /* ─────────────────────────────────────────────────────────────
+       DATE PICKER (mini calendar popup)
+       ─────────────────────────────────────────────────────────── */
+    const DatePicker = ({ value, onChange, onClose }) => {
+      const [viewDate, setViewDate] = useState(new Date(value));
+      const today = startOfDay(new Date());
+
+      const year = viewDate.getFullYear();
+      const month = viewDate.getMonth();
+      const firstOfMonth = new Date(year, month, 1);
+      const firstWeekday = firstOfMonth.getDay(); // 0=Sun
+      // Adjust so week starts Monday (Italian convention)
+      const offset = (firstWeekday + 6) % 7;
+      const daysInMonth = new Date(year, month+1, 0).getDate();
+
+      const cells = [];
+      for (let i = 0; i < offset; i++) cells.push(null);
+      for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+      while (cells.length % 7 !== 0) cells.push(null);
+
+      const goPrev = () => setViewDate(new Date(year, month-1, 1));
+      const goNext = () => setViewDate(new Date(year, month+1, 1));
+
+      const WEEKDAYS_IT = ['L','M','M','G','V','S','D'];
+
+      return (
+        <div
+          className="absolute z-50 left-0 top-full mt-2 w-[300px] bg-white rounded-xl shadow-2xl border border-slate-200 p-3 animate-slide-down"
+          onClick={(e)=> e.stopPropagation()}
+        >
+          {/* header */}
+          <div className="flex items-center justify-between mb-2">
+            <button onClick={goPrev} className="p-1.5 rounded-lg hover:bg-slate-100 active:bg-slate-200">
+              <Icon name="chevron-left" className="w-4 h-4" />
+            </button>
+            <div className="text-sm font-semibold text-slate-900 capitalize">
+              {MONTHS_IT[month]} {year}
+            </div>
+            <button onClick={goNext} className="p-1.5 rounded-lg hover:bg-slate-100 active:bg-slate-200">
+              <Icon name="chevron-right" className="w-4 h-4" />
+            </button>
+          </div>
+          {/* weekday labels */}
+          <div className="grid grid-cols-7 gap-1 mb-1">
+            {WEEKDAYS_IT.map((w, i) => (
+              <div key={i} className="text-[10px] font-medium text-slate-400 text-center py-1">{w}</div>
+            ))}
+          </div>
+          {/* days */}
+          <div className="grid grid-cols-7 gap-1">
+            {cells.map((d, i) => {
+              if (!d) return <div key={i} />;
+              const isSelected = isSameDay(d, value);
+              const isToday    = isSameDay(d, today);
+              return (
+                <button
+                  key={i}
+                  onClick={() => { onChange(d); onClose(); }}
+                  className={`
+                    h-9 w-9 text-sm rounded-lg flex items-center justify-center transition
+                    ${isSelected ? 'bg-primary-600 text-white font-semibold' :
+                      isToday    ? 'bg-primary-50  text-primary-700 font-semibold' :
+                                   'text-slate-700 hover:bg-slate-100'}
+                  `}
+                >
+                  {d.getDate()}
+                </button>
+              );
+            })}
+          </div>
+          {/* footer: today shortcut */}
+          <div className="mt-2 pt-2 border-t border-slate-100 flex justify-between items-center">
+            <button
+              onClick={() => { onChange(today); onClose(); }}
+              className="text-xs font-medium text-primary-600 hover:text-primary-700 px-2 py-1 rounded"
+            >
+              Oggi
+            </button>
+            <button
+              onClick={onClose}
+              className="text-xs font-medium text-slate-500 hover:text-slate-700 px-2 py-1 rounded"
+            >
+              Chiudi
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    /* ─────────────────────────────────────────────────────────────
+       PLANNER PAGE
+       ─────────────────────────────────────────────────────────── */
+
+    const CELL_W = 80;       // pixel width per day cell
+    const ROW_H  = 76;       // pixel height per apartment row
+    const SIDEBAR_W = 132;   // apartment column width
+    const WINDOW_DAYS = 30;  // load ±30 days from selected date
+
+    const Planner = ({ onOpenBooking }) => {
+      const [selectedDate, setSelectedDate] = useState(new Date(2026, 4, 14)); // May 14, 2026
+      const [pickerOpen, setPickerOpen]     = useState(false);
+      const today = startOfDay(new Date());
+
+      // Window: ±30 days from selectedDate. But: never start before 2026-01-01.
+      const HARD_START = new Date(2026, 0, 1);
+      const desiredStart = addDays(selectedDate, -WINDOW_DAYS);
+      const rangeStart = desiredStart < HARD_START ? HARD_START : desiredStart;
+      const rangeEnd   = addDays(selectedDate, WINDOW_DAYS);
+
+      const days = useMemo(() => {
+        const total = diffDays(rangeStart, rangeEnd) + 1;
+        return Array.from({ length: total }, (_, i) => addDays(rangeStart, i));
+      }, [rangeStart.getTime(), rangeEnd.getTime()]);
+
+      // Scroll to selected date column on mount/date change
+      const timelineRef = useRef(null);
+      useEffect(() => {
+        if (!timelineRef.current) return;
+        const idx = diffDays(rangeStart, selectedDate);
+        const x = idx * CELL_W - (timelineRef.current.clientWidth / 2) + (CELL_W / 2);
+        timelineRef.current.scrollTo({ left: Math.max(0, x), behavior: 'smooth' });
+      }, [selectedDate.getTime()]);
+
+      // Filter bookings that intersect the window
+      const visibleBookings = useMemo(() => {
+        return BOOKINGS.filter(b => {
+          const ci = parseISO(b.check_in);
+          const co = parseISO(b.check_out);
+          return co >= rangeStart && ci <= rangeEnd;
+        });
+      }, [rangeStart.getTime(), rangeEnd.getTime()]);
+
+      // Stats for footer
+      const stats = useMemo(() => {
+        const futureOrActive = visibleBookings.filter(b => parseISO(b.check_out) >= today).length;
+        return {
+          apartments: APARTMENTS.length,
+          bookings:   visibleBookings.length,
+          activeOrFuture: futureOrActive,
+        };
+      }, [visibleBookings, today.getTime()]);
+
+      return (
+        <div className="flex flex-col h-full bg-white">
+          {/* ─── Header ─── */}
+          <div className="bg-primary-600 text-white px-5 pt-6 pb-5 relative">
+            <div className="flex items-start justify-between">
+              <div className="relative">
+                <h1 className="text-3xl font-bold tracking-tight">Planner</h1>
+                <button
+                  onClick={() => setPickerOpen(v => !v)}
+                  className="mt-1 flex items-center gap-1 text-sm text-white/95 hover:text-white"
+                >
+                  <span>{fmtItalianFull(selectedDate)}</span>
+                  <Icon name="chevron-down" className="w-4 h-4" strokeWidth={2.5} />
+                </button>
+                {pickerOpen && (
+                  <DatePicker
+                    value={selectedDate}
+                    onChange={(d) => setSelectedDate(d)}
+                    onClose={() => setPickerOpen(false)}
+                  />
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center">
+                  <Icon name="rotate-cw" className="w-5 h-5 text-white" />
+                </button>
+                <button
+                  onClick={() => setSelectedDate(today)}
+                  className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center"
+                  title="Oggi"
+                >
+                  <Icon name="target" className="w-5 h-5 text-white" />
+                </button>
+                <button className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center">
+                  <Icon name="filter" className="w-5 h-5 text-white" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* close picker when clicking outside */}
+          {pickerOpen && (
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setPickerOpen(false)}
+            />
+          )}
+
+          {/* ─── Timeline ─── */}
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <div
+              ref={timelineRef}
+              className="flex-1 overflow-auto no-scrollbar relative"
+              style={{ scrollBehavior: 'smooth' }}
+            >
+              {/* Inner container with fixed pixel width */}
+              <div style={{ width: SIDEBAR_W + days.length * CELL_W }}>
+                {/* Header row (day labels) */}
+                <div
+                  className="sticky top-0 z-20 bg-white border-b border-slate-200 flex"
+                  style={{ height: 56 }}
+                >
+                  {/* sidebar spacer */}
+                  <div
+                    className="sticky left-0 z-30 bg-white border-r border-slate-200"
+                    style={{ width: SIDEBAR_W, minWidth: SIDEBAR_W }}
+                  />
+                  {/* day cells */}
+                  {days.map((d, i) => {
+                    const isSelected = isSameDay(d, selectedDate);
+                    const isToday    = isSameDay(d, today);
+                    return (
+                      <div
+                        key={i}
+                        className="flex flex-col items-center justify-center text-[11px]"
+                        style={{ width: CELL_W, minWidth: CELL_W }}
+                      >
+                        <div className={`uppercase tracking-wide ${isSelected ? 'text-primary-600 font-semibold' : 'text-slate-400'}`}>
+                          {DAYS_SHORT[d.getDay()]}
+                        </div>
+                        <div
+                          className={`
+                            mt-0.5 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+                            ${isSelected ? 'bg-primary-600 text-white' :
+                              isToday    ? 'border border-primary-600 text-primary-600' :
+                                           'text-slate-700'}
+                          `}
+                        >
+                          {d.getDate()}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Apartment rows */}
+                {APARTMENTS.map((apt) => (
+                  <div
+                    key={apt.id}
+                    className="flex border-b border-slate-100 relative"
+                    style={{ height: ROW_H }}
+                  >
+                    {/* sidebar: apartment label */}
+                    <div
+                      className="sticky left-0 z-10 bg-white border-r border-slate-200 flex items-center px-3"
+                      style={{ width: SIDEBAR_W, minWidth: SIDEBAR_W }}
+                    >
+                      <div className="w-1 h-10 bg-primary-600 rounded-full mr-2.5 flex-shrink-0" />
+                      <div className="text-[13px] leading-tight text-slate-800 font-medium">
+                        {apt.name}
+                      </div>
+                    </div>
+
+                    {/* day cells grid */}
+                    {days.map((d, i) => {
+                      const isSelected = isSameDay(d, selectedDate);
+                      return (
+                        <div
+                          key={i}
+                          className={`border-r border-slate-100 ${isSelected ? 'bg-primary-50/40' : ''}`}
+                          style={{ width: CELL_W, minWidth: CELL_W }}
+                        />
+                      );
+                    })}
+
+                    {/* Booking pills for this apartment */}
+                    {visibleBookings
+                      .filter(b => b.apartment_id === apt.id)
+                      .map(b => {
+                        const ci = parseISO(b.check_in);
+                        const co = parseISO(b.check_out);
+                        const startIdx = Math.max(0, diffDays(rangeStart, ci));
+                        const endIdx   = Math.min(days.length, diffDays(rangeStart, co) + 1);
+                        // Use half-day offset to mimic check-in noon / check-out noon convention
+                        const leftPx  = SIDEBAR_W + startIdx * CELL_W + CELL_W * 0.5;
+                        const widthPx = (endIdx - startIdx) * CELL_W - CELL_W;
+                        if (widthPx <= 0) return null;
+
+                        const isPast = co < today;
+                        const meta = CHANNEL_META[b.channel];
+
+                        return (
+                          <button
+                            key={b.code}
+                            onClick={() => onOpenBooking(b.code)}
+                            className={`
+                              absolute flex items-center gap-2 rounded-full pl-1.5 pr-3 text-white text-sm font-medium
+                              shadow-sm hover:shadow-md transition-shadow
+                              ${meta.pill}
+                            `}
+                            style={{
+                              left: leftPx,
+                              width: widthPx,
+                              top: (ROW_H - 36) / 2,
+                              height: 36,
+                              opacity: isPast ? 0.55 : 1,
+                            }}
+                            title={`${b.guests} • ${b.first_name} ${b.last_name}`}
+                          >
+                            <span className="w-7 h-7 rounded-full bg-white/95 flex items-center justify-center flex-shrink-0">
+                              <span className={`text-[11px] font-bold ${
+                                b.channel === 'booking' ? 'text-booking' :
+                                b.channel === 'airbnb'  ? 'text-airbnb'  : 'text-vrbo'
+                              }`}>
+                                {meta.label}
+                              </span>
+                            </span>
+                            <span className="truncate">
+                              {b.guests} • {b.last_name} {b.first_name}
+                            </span>
+                          </button>
+                        );
+                      })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ─── Footer stats ─── */}
+          <div className="border-t border-slate-200 bg-white px-5 py-3 flex items-center gap-5 text-[13px]">
+            <span className="text-slate-500">
+              <span className="font-semibold text-slate-900">{stats.apartments}</span> appartamenti
+            </span>
+            <span className="text-slate-500">
+              <span className="font-semibold text-slate-900">{stats.bookings}</span> prenotazioni
+            </span>
+            <span className="text-ok">
+              <span className="font-semibold">{stats.activeOrFuture}</span> attive/future
+            </span>
+          </div>
+        </div>
+      );
+    };
+
+    /* ─────────────────────────────────────────────────────────────
+       PLACEHOLDER PAGES (we'll build these in next steps)
+       ─────────────────────────────────────────────────────────── */
+    const Placeholder = ({ title, subtitle }) => (
+      <div className="flex flex-col h-full items-center justify-center text-center px-6 bg-white">
+        <div className="w-16 h-16 rounded-2xl bg-primary-50 flex items-center justify-center mb-4">
+          <Icon name="construction" className="w-8 h-8 text-primary-600" />
+        </div>
+        <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
+        <p className="mt-1.5 text-sm text-slate-500 max-w-xs">{subtitle}</p>
+      </div>
+    );
+
+    /* ─────────────────────────────────────────────────────────────
+       BOTTOM NAV
+       ─────────────────────────────────────────────────────────── */
+    const NAV_ITEMS = [
+      { id: 'home',     label: 'Home',     icon: 'home' },
+      { id: 'planner',  label: 'Planner',  icon: 'calendar-days' },
+      { id: 'new',      label: '',         icon: 'plus',    fab: true },
+      { id: 'channels', label: 'Channels', icon: 'radio-tower' },
+      { id: 'more',     label: 'Altro',    icon: 'menu' },
+    ];
+
+    const BottomNav = ({ active, onChange }) => (
+      <nav className="border-t border-slate-200 bg-white grid grid-cols-5 h-[68px] safe-bottom">
+        {NAV_ITEMS.map(item => {
+          if (item.fab) {
+            return (
+              <div key={item.id} className="flex items-center justify-center -mt-6">
+                <button
+                  onClick={() => onChange('new')}
+                  className="w-14 h-14 rounded-full bg-primary-600 text-white shadow-lg hover:bg-primary-700 flex items-center justify-center"
+                >
+                  <Icon name="plus" className="w-7 h-7" strokeWidth={2.5} />
+                </button>
+              </div>
+            );
+          }
+          const isActive = active === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onChange(item.id)}
+              className={`flex flex-col items-center justify-center gap-0.5 ${isActive ? 'text-primary-600' : 'text-slate-500'}`}
+            >
+              <Icon name={item.icon} className="w-5 h-5" strokeWidth={isActive ? 2.4 : 2} />
+              <span className={`text-[11px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+    );
+
+    /* ─────────────────────────────────────────────────────────────
+       APP SHELL — simple state-based routing (no React Router needed)
+       ─────────────────────────────────────────────────────────── */
+    const App = () => {
+      const [route, setRoute] = useState({ name: 'planner' }); // start on planner per current focus
+
+      const openBooking = (code) => setRoute({ name: 'booking', code });
+
+      const renderPage = () => {
+        switch (route.name) {
+          case 'home':
+            return <Placeholder title="Home" subtitle="La nuova home stile Krossbooking arriverà nello step 5." />;
+          case 'planner':
+            return <Planner onOpenBooking={openBooking} />;
+          case 'channels':
+            return <Placeholder title="Channels" subtitle="Gestione canali — da definire." />;
+          case 'more':
+            return <Placeholder title="Altro" subtitle="Calendari, Prenotazioni e impostazioni." />;
+          case 'booking':
+            return <Placeholder title={`Prenotazione ${route.code}`} subtitle="La pagina dettaglio prenotazione arriverà nello step 2." />;
+          case 'new':
+            return <Placeholder title="Nuova prenotazione" subtitle="Form di creazione manuale — da definire." />;
+          default:
+            return null;
+        }
+      };
+
+      // Map route to active nav id
+      const activeNav = ['home','planner','channels','more','new'].includes(route.name) ? route.name : 'planner';
+
+      return (
+        <div className="flex flex-col h-full max-w-[480px] mx-auto bg-white shadow-2xl">
+          <div className="flex-1 overflow-hidden">
+            {renderPage()}
+          </div>
+          <BottomNav active={activeNav} onChange={(id) => setRoute({ name: id })} />
+        </div>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
