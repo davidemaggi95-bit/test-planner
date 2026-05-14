@@ -1270,6 +1270,340 @@
     };
 
     /* ─────────────────────────────────────────────────────────────
+       PRENOTAZIONI — list page (Booking Pulse style, light theme)
+       ─────────────────────────────────────────────────────────── */
+
+    const PAGE_SIZE = 30;
+
+    const Prenotazioni = ({ onOpenBooking }) => {
+      const [query, setQuery] = useState('');
+      const [sortBy, setSortBy] = useState('arrival'); // 'arrival' | 'booking'
+      const [filtersOpen, setFiltersOpen] = useState(false);
+      const [channelFilter, setChannelFilter] = useState('all');
+      const [aptFilter, setAptFilter] = useState('all');
+      const [statusFilter, setStatusFilter] = useState('all');
+      const [groupByApt, setGroupByApt] = useState(false);
+      const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+      // Apply filters + search + sort
+      const filtered = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        let arr = BOOKINGS.filter(b => {
+          if (channelFilter !== 'all' && b.channel !== channelFilter) return false;
+          if (aptFilter !== 'all' && b.apartment_id !== aptFilter) return false;
+          if (statusFilter !== 'all' && b.status !== statusFilter) return false;
+          if (q) {
+            const haystack = `${b.first_name} ${b.last_name} ${b.code}`.toLowerCase();
+            if (!haystack.includes(q)) return false;
+          }
+          return true;
+        });
+        const key = sortBy === 'arrival' ? 'check_in' : 'booking_date';
+        arr.sort((a, b) => a[key].localeCompare(b[key]));
+        return arr;
+      }, [query, sortBy, channelFilter, aptFilter, statusFilter]);
+
+      // Reset visibleCount when filters change
+      useEffect(() => { setVisibleCount(PAGE_SIZE); }, [query, sortBy, channelFilter, aptFilter, statusFilter, groupByApt]);
+
+      const paginated = filtered.slice(0, visibleCount);
+      const hasMore = filtered.length > paginated.length;
+
+      // Active filter count for the badge
+      const activeFilters =
+        (channelFilter !== 'all' ? 1 : 0) +
+        (aptFilter !== 'all' ? 1 : 0) +
+        (statusFilter !== 'all' ? 1 : 0) +
+        (groupByApt ? 1 : 0);
+
+      const clearFilters = () => {
+        setChannelFilter('all');
+        setAptFilter('all');
+        setStatusFilter('all');
+        setGroupByApt(false);
+      };
+
+      // Group bookings either by date or by apartment
+      const groups = useMemo(() => {
+        if (groupByApt) {
+          const map = new Map();
+          paginated.forEach(b => {
+            if (!map.has(b.apartment_id)) map.set(b.apartment_id, []);
+            map.get(b.apartment_id).push(b);
+          });
+          return Array.from(map.entries()).map(([aptId, items]) => {
+            const apt = APARTMENTS.find(a => a.id === aptId);
+            return { label: apt ? apt.name : aptId, items };
+          });
+        }
+        // Group by date (the sort key)
+        const key = sortBy === 'arrival' ? 'check_in' : 'booking_date';
+        const map = new Map();
+        paginated.forEach(b => {
+          const d = b[key];
+          if (!map.has(d)) map.set(d, []);
+          map.get(d).push(b);
+        });
+        return Array.from(map.entries()).map(([dateStr, items]) => {
+          const d = parseISO(dateStr);
+          return { label: fmtItalianFull(d), items };
+        });
+      }, [paginated, sortBy, groupByApt]);
+
+      return (
+        <div className="flex flex-col h-full bg-slate-50">
+          {/* Header */}
+          <div className="bg-white px-5 pt-6 pb-3 border-b border-slate-100">
+            <div className="flex items-center justify-between mb-3">
+              <h1 className="text-[28px] font-bold tracking-tight text-slate-900">Prenotazioni</h1>
+              <button
+                onClick={() => setFiltersOpen(v => !v)}
+                className={`relative w-10 h-10 rounded-full flex items-center justify-center transition ${
+                  filtersOpen || activeFilters > 0 ? 'bg-primary-50 text-primary-600' : 'hover:bg-slate-100 text-slate-700'
+                }`}
+                aria-label="Filtri"
+              >
+                <Icon name="filter" className="w-5 h-5" />
+                {activeFilters > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary-600 text-white text-[10px] font-bold flex items-center justify-center">
+                    {activeFilters}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="flex items-center bg-slate-100 rounded-full px-4 py-2.5">
+              <Icon name="search" className="w-4 h-4 text-slate-400 mr-2" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Cerca prenotazioni..."
+                className="flex-1 bg-transparent text-sm text-slate-900 placeholder-slate-400 focus:outline-none"
+              />
+              {query && (
+                <button onClick={() => setQuery('')}>
+                  <Icon name="x" className="w-4 h-4 text-slate-400" />
+                </button>
+              )}
+            </div>
+
+            {/* Sort toggle */}
+            <div className="mt-3 flex bg-slate-100 rounded-full p-1 text-sm">
+              <button
+                onClick={() => setSortBy('arrival')}
+                className={`flex-1 py-2 rounded-full font-medium transition ${
+                  sortBy === 'arrival' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                }`}
+              >
+                Data di arrivo
+              </button>
+              <button
+                onClick={() => setSortBy('booking')}
+                className={`flex-1 py-2 rounded-full font-medium transition ${
+                  sortBy === 'booking' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                }`}
+              >
+                Data della prenotazione
+              </button>
+            </div>
+          </div>
+
+          {/* Filters panel (collapsible) */}
+          {filtersOpen && (
+            <div className="bg-white border-b border-slate-100 px-5 py-4 space-y-3 animate-slide-down">
+              {/* Canale */}
+              <FilterPills
+                label="Canale"
+                value={channelFilter}
+                onChange={setChannelFilter}
+                options={[
+                  { v: 'all', label: 'Tutti' },
+                  { v: 'booking', label: 'Booking' },
+                  { v: 'airbnb',  label: 'Airbnb' },
+                  { v: 'vrbo',    label: 'VRBO' },
+                ]}
+              />
+              {/* Appartamento */}
+              <FilterPills
+                label="Appartamento"
+                value={aptFilter}
+                onChange={setAptFilter}
+                options={[
+                  { v: 'all', label: 'Tutti' },
+                  ...APARTMENTS.map(a => ({ v: a.id, label: a.short })),
+                ]}
+              />
+              {/* Stato */}
+              <FilterPills
+                label="Stato"
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={[
+                  { v: 'all',       label: 'Tutti' },
+                  { v: 'confirmed', label: 'Confermata' },
+                  { v: 'pending',   label: 'In attesa' },
+                  { v: 'cancelled', label: 'Cancellata' },
+                ]}
+              />
+              {/* Group toggle */}
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                <span className="text-[13px] font-semibold text-slate-700">Raggruppa per appartamento</span>
+                <button
+                  onClick={() => setGroupByApt(v => !v)}
+                  className={`relative w-11 h-6 rounded-full transition ${groupByApt ? 'bg-primary-600' : 'bg-slate-300'}`}
+                  aria-label="Toggle raggruppamento"
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                      groupByApt ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+              {/* Clear */}
+              {activeFilters > 0 && (
+                <button
+                  onClick={clearFilters}
+                  className="w-full mt-1 py-2 text-sm font-medium text-primary-600 hover:bg-primary-50 rounded-lg"
+                >
+                  Azzera filtri
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* List */}
+          <div className="flex-1 overflow-y-auto">
+            {filtered.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
+                  <Icon name="search" className="w-6 h-6 text-slate-400" />
+                </div>
+                <p className="text-slate-700 font-medium">Nessuna prenotazione trovata</p>
+                <p className="text-sm text-slate-400 mt-1">Prova a modificare i filtri o la ricerca</p>
+              </div>
+            )}
+
+            {groups.map((g, gi) => (
+              <div key={gi}>
+                {/* Group header (date or apartment) */}
+                <div className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur px-5 py-2 text-[12px] font-semibold text-slate-500 uppercase tracking-wide">
+                  {g.label}
+                </div>
+                <div className="px-4 pb-2 space-y-2">
+                  {g.items.map(b => (
+                    <BookingListCard key={b.code} booking={b} onClick={() => onOpenBooking(b.code)} />
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {/* Load more */}
+            {hasMore && (
+              <div className="px-4 py-4">
+                <button
+                  onClick={() => setVisibleCount(c => c + PAGE_SIZE)}
+                  className="w-full py-3 rounded-xl bg-white border border-slate-200 hover:border-primary-300 text-primary-600 font-semibold text-sm transition"
+                >
+                  Carica altre ({filtered.length - paginated.length})
+                </button>
+              </div>
+            )}
+
+            {!hasMore && paginated.length > 0 && (
+              <div className="px-4 py-6 text-center text-[12px] text-slate-400">
+                {paginated.length} {paginated.length === 1 ? 'prenotazione' : 'prenotazioni'}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    // Filter pills row — used inside the filter panel
+    const FilterPills = ({ label, value, onChange, options }) => (
+      <div>
+        <div className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase mb-1.5">{label}</div>
+        <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1">
+          {options.map(opt => {
+            const active = value === opt.v;
+            return (
+              <button
+                key={opt.v}
+                onClick={() => onChange(opt.v)}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[13px] font-medium border transition ${
+                  active
+                    ? 'bg-primary-600 text-white border-primary-600'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+
+    // Single booking card (Booking Pulse style)
+    const BookingListCard = React.memo(({ booking, onClick }) => {
+      const apt = APARTMENTS.find(a => a.id === booking.apartment_id);
+      const nights = diffDays(parseISO(booking.check_in), parseISO(booking.check_out));
+      const isGenius = booking.channel === 'booking'; // mock: assume some Booking guests are Genius
+      const today = startOfDay(new Date());
+      const isPast = parseISO(booking.check_out) < today;
+      const statusBadge =
+        booking.status === 'cancelled' ? { label: 'Cancellata', cls: 'bg-danger/10 text-danger' } :
+        booking.status === 'pending'   ? { label: 'In attesa',  cls: 'bg-warn/10 text-warn'     } :
+        null;
+
+      return (
+        <button
+          onClick={onClick}
+          className={`w-full bg-white rounded-2xl border border-slate-100 hover:border-slate-200 hover:shadow-sm active:scale-[0.99] transition p-3 flex items-start gap-3 text-left ${isPast ? 'opacity-70' : ''}`}
+        >
+          {/* Channel badge */}
+          <ChannelBadge channel={booking.channel} />
+
+          {/* Main info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[15px] font-semibold text-slate-900 truncate max-w-[60%]">
+                {booking.last_name} {booking.first_name}
+              </span>
+              {isGenius && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-booking">
+                  Genius
+                </span>
+              )}
+              {statusBadge && (
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${statusBadge.cls}`}>
+                  {statusBadge.label}
+                </span>
+              )}
+            </div>
+            <div className="text-[13px] text-slate-600 mt-0.5">
+              {fmtDateRangeShort(booking.check_in, booking.check_out)} · {nights} {nights === 1 ? 'notte' : 'notti'}
+            </div>
+            <div className="flex items-center gap-3 text-[12px] text-slate-500 mt-1">
+              <span className="flex items-center gap-1">
+                <Icon name="users" className="w-3.5 h-3.5" /> {booking.guests}
+              </span>
+              <span className="truncate">{apt ? apt.name : ''}</span>
+            </div>
+          </div>
+
+          {/* Chat icon */}
+          <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+            <Icon name="message-circle" className="w-4 h-4 text-slate-600" />
+          </div>
+        </button>
+      );
+    });
+
+    /* ─────────────────────────────────────────────────────────────
        PLACEHOLDER PAGES (we'll build these in next steps)
        ─────────────────────────────────────────────────────────── */
     const Placeholder = ({ title, subtitle }) => (
@@ -1336,7 +1670,9 @@
                      onOpenBooking={(code) => openBooking(code, { name: 'calendari-detail', apartmentId: route.apartmentId })}
                    />;
           case 'prenotazioni':
-            return <Placeholder title="Prenotazioni" subtitle="Lista prenotazioni stile Booking Pulse — step 4." />;
+            return <Prenotazioni
+                     onOpenBooking={(code) => openBooking(code, { name: 'prenotazioni' })}
+                   />;
           case 'booking':
             return <BookingDetail
                      code={route.code}
