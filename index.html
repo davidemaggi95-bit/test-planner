@@ -901,104 +901,71 @@
       });
     };
 
-    const CalendariList = ({ onOpenApartment, onBack }) => {
-      const [searchOpen, setSearchOpen] = useState(false);
-      const [query, setQuery] = useState('');
+    const CalendariList = ({ onOpenApartment }) => {
+      // Build a 35-day occupancy pattern (5 weeks) for the dot-strip preview, Airbnb style
       const today = startOfDay(new Date());
-
-      const filtered = APARTMENTS.filter(a =>
-        a.name.toLowerCase().includes(query.toLowerCase())
-      );
-
-      // For each apartment, compute a 30-day occupancy strip starting today
       const buildStrip = (aptId) => {
-        return Array.from({ length: 30 }, (_, i) => {
+        return Array.from({ length: 35 }, (_, i) => {
           const d = addDays(today, i);
           const b = bookingOnDay(aptId, d);
-          return { date: d, booking: b };
+          const isCenter = i === 17; // small red ring on a single "today-ish" cell, like Airbnb
+          return { date: d, booking: b, center: isCenter };
         });
       };
 
       return (
-        <div className="flex flex-col h-full bg-slate-50">
-          {/* Header */}
-          <div className="bg-white px-5 pt-6 pb-4 border-b border-slate-100">
-            <div className="flex items-center justify-between">
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900">Calendari</h1>
-              <button
-                onClick={() => setSearchOpen(v => !v)}
-                className="w-10 h-10 rounded-full hover:bg-slate-100 active:bg-slate-200 flex items-center justify-center"
-                aria-label="Cerca"
-              >
-                <Icon name="search" className="w-5 h-5 text-slate-700" />
-              </button>
-            </div>
-            {searchOpen && (
-              <div className="mt-3 flex items-center bg-slate-100 rounded-full px-4 py-2.5 animate-slide-down">
-                <Icon name="search" className="w-4 h-4 text-slate-400 mr-2" />
-                <input
-                  type="text"
-                  autoFocus
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Cerca appartamento..."
-                  className="flex-1 bg-transparent text-sm text-slate-900 placeholder-slate-400 focus:outline-none"
-                />
-                {query && (
-                  <button onClick={() => setQuery('')} className="ml-2">
-                    <Icon name="x" className="w-4 h-4 text-slate-400" />
-                  </button>
-                )}
-              </div>
-            )}
+        <div className="flex flex-col h-full bg-white">
+          {/* Title block — Airbnb style: big title, no border, no header bar */}
+          <div className="px-5 pt-12 pb-4">
+            <h1 className="text-[34px] font-extrabold tracking-tight text-slate-900 leading-none">
+              Calendari
+            </h1>
           </div>
 
           {/* Apartment list */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-            {filtered.length === 0 && (
-              <div className="text-center text-slate-400 text-sm pt-10">Nessun appartamento trovato</div>
-            )}
-            {filtered.map(apt => {
+          <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-3">
+            {APARTMENTS.map(apt => {
               const strip = buildStrip(apt.id);
               const gradient = APT_GRADIENTS[apt.id] || 'from-slate-400 to-slate-500';
               return (
                 <button
                   key={apt.id}
                   onClick={() => onOpenApartment(apt.id)}
-                  className="w-full bg-white rounded-2xl border border-slate-100 hover:border-slate-200 hover:shadow-md active:scale-[0.99] transition-all overflow-hidden text-left"
+                  className="w-full bg-white rounded-2xl border border-slate-200 hover:border-slate-300 active:scale-[0.99] transition-all p-3 flex items-center gap-3 text-left"
+                  style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
                 >
-                  <div className="flex items-center p-3 gap-3">
-                    {/* Thumbnail */}
-                    <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center flex-shrink-0`}>
-                      <span className="text-white font-bold text-base">{apt.code}</span>
-                    </div>
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[15px] font-semibold text-slate-900 truncate">{apt.name}</div>
-                      <div className="mt-1 flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-ok">
-                          <span className="w-1.5 h-1.5 rounded-full bg-ok" />
-                          Pubblicato
-                        </span>
-                      </div>
-                    </div>
-                    <Icon name="chevron-right" className="w-5 h-5 text-slate-300 flex-shrink-0" />
+                  {/* Thumbnail — square, rounded */}
+                  <div className={`w-[88px] h-[88px] rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center flex-shrink-0 shadow-inner`}>
+                    <span className="text-white font-bold text-lg drop-shadow-sm">{apt.code}</span>
                   </div>
 
-                  {/* Mini-strip availability */}
-                  <div className="px-3 pb-3">
-                    <div className="flex gap-[2px] h-2">
+                  {/* Name + status */}
+                  <div className="flex-1 min-w-0 pr-1">
+                    <div className="text-[17px] font-semibold text-slate-900 leading-tight line-clamp-2">
+                      {apt.name}
+                    </div>
+                    <div className="mt-1 text-[14px] text-slate-500">Pubblicato</div>
+                  </div>
+
+                  {/* Mini availability dot pattern — Airbnb style 7×5 grid */}
+                  <div className="flex-shrink-0 w-[110px]">
+                    <div className="grid grid-cols-7 gap-[3px]">
                       {strip.map((s, i) => {
                         if (s.booking) {
                           const meta = CHANNEL_META[s.booking.channel];
-                          return <div key={i} className={`flex-1 rounded-sm ${meta.pill}`} />;
+                          return (
+                            <div key={i} className={`h-[6px] rounded-full ${meta.pill}`} />
+                          );
                         }
-                        return <div key={i} className="flex-1 rounded-sm bg-slate-100" />;
+                        if (s.center) {
+                          return (
+                            <div key={i} className="h-[6px] w-[6px] rounded-full border-[1.5px] border-airbnb mx-auto" />
+                          );
+                        }
+                        return (
+                          <div key={i} className="h-[6px] w-[6px] rounded-full bg-slate-300 mx-auto" />
+                        );
                       })}
-                    </div>
-                    <div className="mt-1.5 flex items-center justify-between text-[10px] text-slate-400">
-                      <span>Oggi</span>
-                      <span>+30 giorni</span>
                     </div>
                   </div>
                 </button>
@@ -1013,69 +980,172 @@
        CALENDARI — vista interna (singolo appartamento)
        ─────────────────────────────────────────────────────────── */
 
-    // A single month grid: weekday header + days with booking strips
+    // Helpers for Airbnb-style grid: figure out, for a given month, the start/end positions
+    // of each booking pill (rows of 7 cells)
+    const buildMonthBookingPills = (year, month, aptId) => {
+      // Find all bookings that touch this month
+      const monthStart = new Date(year, month, 1);
+      const monthEnd   = new Date(year, month + 1, 0); // last day
+      const offset = (monthStart.getDay() + 6) % 7;     // Mon-start
+
+      const monthBookings = BOOKINGS.filter(b => {
+        if (b.apartment_id !== aptId) return false;
+        const ci = parseISO(b.check_in);
+        const co = parseISO(b.check_out);
+        // overlap with month
+        return co > monthStart && ci <= monthEnd;
+      });
+
+      const pills = [];
+      monthBookings.forEach(b => {
+        const ci = parseISO(b.check_in);
+        const co = parseISO(b.check_out);
+        // Clamp to this month
+        const startDay = Math.max(1, ci.getDate() - (ci < monthStart ? -999 : 0));
+        // The pill starts on max(ci, monthStart), ends on min(co, monthEnd+1) — but Airbnb shows
+        // the pill from check-in DAY through the day BEFORE checkout
+        const pillStart = ci < monthStart ? monthStart : ci;
+        const pillEnd   = co > new Date(year, month + 1, 1) ? new Date(year, month + 1, 1) : co;
+        // pillEnd is exclusive (checkout day excluded), but Airbnb often shows the pill ending
+        // mid-cell on checkout day. We'll occupy [pillStart, pillEnd) days.
+
+        // Convert to cell indices in the grid (0-based, including offset)
+        const startCellIdx = offset + (pillStart.getDate() - 1);
+        // Number of days covered = (pillEnd - pillStart) days (excluded). If checkout day in same month, that day is "free".
+        const days = Math.max(1, Math.round((pillEnd - pillStart) / 86400000));
+        const endCellIdx = startCellIdx + days - 1; // inclusive last cell
+
+        // Split into rows (each row = 7 cells)
+        let s = startCellIdx;
+        while (s <= endCellIdx) {
+          const rowEnd = Math.floor(s / 7) * 7 + 6;
+          const e = Math.min(rowEnd, endCellIdx);
+          pills.push({
+            booking: b,
+            rowIdx: Math.floor(s / 7),
+            colStart: s % 7,
+            colEnd:   e % 7,
+            // is this the first/last segment of the booking inside this month?
+            isStart: s === startCellIdx && ci >= monthStart,
+            isEnd:   e === endCellIdx && co <= new Date(year, month + 1, 1),
+          });
+          s = e + 1;
+        }
+      });
+
+      return pills;
+    };
+
+    // A single month grid — Airbnb style
     const MonthGrid = ({ year, month, aptId }) => {
       const today = startOfDay(new Date());
       const firstOfMonth = new Date(year, month, 1);
-      const offset = (firstOfMonth.getDay() + 6) % 7; // Monday start
+      const offset = (firstOfMonth.getDay() + 6) % 7;
       const daysInMonth = new Date(year, month + 1, 0).getDate();
       const WEEKDAYS = ['L','M','M','G','V','S','D'];
 
+      // Build cells array with offset
       const cells = [];
       for (let i = 0; i < offset; i++) cells.push(null);
       for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+      while (cells.length % 7 !== 0) cells.push(null);
+      const totalRows = cells.length / 7;
+
+      const pills = buildMonthBookingPills(year, month, aptId);
+
+      const CELL_HEIGHT = 64;  // px
 
       return (
-        <div className="px-4 py-4">
-          {/* Month title */}
-          <div className="mb-3 px-1">
-            <h3 className="text-lg font-bold text-slate-900 capitalize">
-              {MONTHS_IT[month]} <span className="text-slate-400 font-normal">{year}</span>
-            </h3>
-          </div>
+        <div className="px-4 pt-2 pb-4">
+          {/* Month title — Airbnb: lowercase, very large, left aligned */}
+          <h3 className="text-[26px] font-extrabold text-slate-900 tracking-tight lowercase mb-3">
+            {MONTHS_IT[month]}
+            {month === 0 && <span className="font-normal text-slate-400 ml-2">{year}</span>}
+          </h3>
+
           {/* Weekday labels */}
-          <div className="grid grid-cols-7 gap-1 mb-1">
+          <div className="grid grid-cols-7 gap-[3px] mb-1">
             {WEEKDAYS.map((w, i) => (
-              <div key={i} className="text-[10px] font-semibold text-slate-400 text-center py-1 uppercase">{w}</div>
+              <div key={i} className="text-[12px] font-medium text-slate-500 text-center py-1 uppercase">{w}</div>
             ))}
           </div>
-          {/* Days */}
-          <div className="grid grid-cols-7 gap-1">
-            {cells.map((d, i) => {
-              if (!d) return <div key={i} className="h-14" />;
-              const booking = bookingOnDay(aptId, d);
-              const isPast  = d < today;
-              const isToday = isSameDay(d, today);
-              const meta = booking ? CHANNEL_META[booking.channel] : null;
 
+          {/* Cells grid */}
+          <div className="relative">
+            <div className="grid grid-cols-7 gap-[3px]">
+              {cells.map((d, i) => {
+                if (!d) {
+                  return <div key={i} style={{ height: CELL_HEIGHT }} />;
+                }
+                const isPast = d < today;
+                const isToday = isSameDay(d, today);
+                // Is this cell occupied by a booking pill?
+                const occupied = pills.some(p => {
+                  const cellRow = Math.floor(i / 7);
+                  const cellCol = i % 7;
+                  return p.rowIdx === cellRow && cellCol >= p.colStart && cellCol <= p.colEnd;
+                });
+                return (
+                  <div
+                    key={i}
+                    className="rounded-xl border border-slate-200 bg-white flex items-start justify-start px-2 pt-1.5 relative overflow-hidden"
+                    style={{ height: CELL_HEIGHT }}
+                  >
+                    <span className={`
+                      text-[15px] font-semibold relative z-20
+                      ${isPast && !occupied ? 'text-slate-300 line-through' :
+                        isToday ? 'text-airbnb' :
+                        'text-slate-900'}
+                    `}>
+                      {isToday ? (
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full border-[1.5px] border-airbnb">
+                          {d.getDate()}
+                        </span>
+                      ) : d.getDate()}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Booking pills overlay — absolute positioned over rows */}
+            {pills.map((p, idx) => {
+              const meta = CHANNEL_META[p.booking.channel];
+              const colW = `calc((100% - 3px * 6) / 7)`;
+              const left = `calc((${colW} + 3px) * ${p.colStart})`;
+              const width = `calc((${colW} + 3px) * ${p.colEnd - p.colStart + 1} - 3px)`;
+              const top = p.rowIdx * (CELL_HEIGHT + 3) + CELL_HEIGHT / 2 + 2; // vertical center-ish in cell
+              const initial = p.booking.first_name.charAt(0).toUpperCase();
+              const lastInitial = p.booking.last_name.charAt(0).toUpperCase();
               return (
                 <div
-                  key={i}
-                  className={`
-                    h-14 rounded-lg border flex flex-col items-center justify-center relative overflow-hidden
-                    ${booking
-                      ? `${meta.pill} border-transparent`
-                      : isPast
-                        ? 'bg-slate-50 border-slate-100'
-                        : 'bg-white border-slate-200'}
-                  `}
+                  key={idx}
+                  className={`absolute ${meta.pill} text-white text-xs font-medium flex items-center gap-1.5 z-10 shadow-sm`}
+                  style={{
+                    left,
+                    width,
+                    top,
+                    height: 26,
+                    paddingLeft: p.isStart ? 3 : 6,
+                    paddingRight: p.isEnd ? 8 : 4,
+                    borderTopLeftRadius:    p.isStart ? 13 : 0,
+                    borderBottomLeftRadius: p.isStart ? 13 : 0,
+                    borderTopRightRadius:    p.isEnd ? 13 : 0,
+                    borderBottomRightRadius: p.isEnd ? 13 : 0,
+                  }}
                 >
-                  <span className={`
-                    text-sm font-semibold
-                    ${booking ? 'text-white' :
-                      isToday ? 'text-primary-600' :
-                      isPast  ? 'text-slate-300' : 'text-slate-700'}
-                  `}>
-                    {d.getDate()}
+                  {p.isStart && (
+                    <div className="w-[22px] h-[22px] rounded-full bg-white/95 flex items-center justify-center flex-shrink-0 text-[10px] font-bold"
+                         style={{
+                           color: p.booking.channel === 'booking' ? '#003B95' :
+                                  p.booking.channel === 'airbnb'  ? '#FF385C' : '#0F61B5'
+                         }}>
+                      {lastInitial}
+                    </div>
+                  )}
+                  <span className="truncate text-[11px]">
+                    {p.isStart ? p.booking.last_name : ''}
                   </span>
-                  {isToday && !booking && (
-                    <span className="mt-0.5 w-1 h-1 rounded-full bg-primary-600" />
-                  )}
-                  {booking && (
-                    <span className="text-[9px] text-white/90 mt-0.5 font-medium leading-none">
-                      occupato
-                    </span>
-                  )}
                 </div>
               );
             })}
@@ -1089,14 +1159,23 @@
       const today = new Date();
       const startMonth = today.getMonth();
       const startYear  = today.getFullYear();
-      // Render 6 months starting from current
+
+      // 12 months starting from current
       const months = useMemo(() => {
-        return Array.from({ length: 6 }, (_, i) => {
+        return Array.from({ length: 12 }, (_, i) => {
           const m = (startMonth + i) % 12;
           const y = startYear + Math.floor((startMonth + i) / 12);
           return { year: y, month: m };
         });
       }, [startMonth, startYear]);
+
+      // Scroll-to-top button visibility
+      const scrollRef = useRef(null);
+      const [showTop, setShowTop] = useState(false);
+      const handleScroll = useCallback(() => {
+        if (!scrollRef.current) return;
+        setShowTop(scrollRef.current.scrollTop > 400);
+      }, []);
 
       if (!apt) {
         return (
@@ -1106,91 +1185,51 @@
         );
       }
 
-      const gradient = APT_GRADIENTS[apt.id] || 'from-slate-400 to-slate-500';
-
       return (
-        <div className="flex flex-col h-full bg-slate-50">
-          {/* Sticky header */}
-          <div className="bg-white border-b border-slate-100 px-3 pt-5 pb-3 flex items-center gap-3">
+        <div className="flex flex-col h-full bg-white relative">
+          {/* Sticky header — Airbnb style: back arrow + truncated title + circular action buttons */}
+          <div className="bg-white px-4 pt-5 pb-3 flex items-center gap-2 border-b border-slate-100">
             <button
               onClick={onBack}
               className="w-10 h-10 rounded-full hover:bg-slate-100 active:bg-slate-200 flex items-center justify-center flex-shrink-0"
             >
-              <Icon name="arrow-left" className="w-5 h-5 text-slate-700" strokeWidth={2.5} />
+              <Icon name="arrow-left" className="w-5 h-5 text-slate-900" strokeWidth={2.5} />
             </button>
-            <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${gradient} flex items-center justify-center flex-shrink-0`}>
-              <span className="text-white font-bold text-xs">{apt.code}</span>
+            <div className="flex-1 min-w-0 px-1">
+              <div className="text-[17px] font-bold text-slate-900 truncate">{apt.name}</div>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[15px] font-semibold text-slate-900 truncate">{apt.name}</div>
-              <div className="text-[11px] text-ok font-semibold">● Pubblicato</div>
-            </div>
-          </div>
-
-          {/* Legend */}
-          <div className="bg-white border-b border-slate-100 px-4 py-2.5 flex items-center gap-4 text-[11px] text-slate-500">
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-white border border-slate-200" />
-              libero
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-booking" />
-              Booking
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-airbnb" />
-              Airbnb
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-vrbo" />
-              VRBO
-            </span>
+            <button className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center flex-shrink-0">
+              <Icon name="calendar" className="w-5 h-5 text-slate-700" />
+            </button>
+            <button className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center flex-shrink-0">
+              <Icon name="settings" className="w-5 h-5 text-slate-700" />
+            </button>
           </div>
 
           {/* Scrollable months */}
-          <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto"
+          >
             {months.map((m, i) => (
-              <MonthGrid key={i} year={m.year} month={m.month} aptId={apt.id} />
+              <MonthGrid key={`${m.year}-${m.month}`} year={m.year} month={m.month} aptId={apt.id} />
             ))}
             <div className="px-4 py-6 text-center text-xs text-slate-400">
-              Fine periodo visualizzato
+              12 mesi visualizzati
             </div>
           </div>
-        </div>
-      );
-    };
 
-    /* ─────────────────────────────────────────────────────────────
-       "ALTRO" PAGE — entry hub for Calendari / Prenotazioni etc.
-       ─────────────────────────────────────────────────────────── */
-    const MorePage = ({ onNavigate }) => {
-      const items = [
-        { id: 'calendari',    label: 'Calendari',    icon: 'calendar',     desc: 'Disponibilità per appartamento' },
-        { id: 'prenotazioni', label: 'Prenotazioni', icon: 'list-checks',  desc: 'Tutte le prenotazioni' },
-      ];
-      return (
-        <div className="flex flex-col h-full bg-slate-50">
-          <div className="bg-white px-5 pt-6 pb-4 border-b border-slate-100">
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Altro</h1>
-          </div>
-          <div className="p-4 space-y-2">
-            {items.map(it => (
-              <button
-                key={it.id}
-                onClick={() => onNavigate(it.id)}
-                className="w-full flex items-center gap-3 bg-white rounded-2xl border border-slate-100 hover:border-slate-200 hover:shadow-sm transition p-4 text-left"
-              >
-                <div className="w-11 h-11 rounded-xl bg-primary-50 flex items-center justify-center flex-shrink-0">
-                  <Icon name={it.icon} className="w-5 h-5 text-primary-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[15px] font-semibold text-slate-900">{it.label}</div>
-                  <div className="text-xs text-slate-500 mt-0.5">{it.desc}</div>
-                </div>
-                <Icon name="chevron-right" className="w-5 h-5 text-slate-300 flex-shrink-0" />
-              </button>
-            ))}
-          </div>
+          {/* Scroll-to-top floating button — Airbnb style */}
+          {showTop && (
+            <button
+              onClick={() => scrollRef.current && scrollRef.current.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="absolute bottom-5 right-5 w-12 h-12 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center"
+              aria-label="Torna su"
+            >
+              <Icon name="arrow-up" className="w-5 h-5 text-slate-900" strokeWidth={2.5} />
+            </button>
+          )}
         </div>
       );
     };
@@ -1212,28 +1251,15 @@
        BOTTOM NAV
        ─────────────────────────────────────────────────────────── */
     const NAV_ITEMS = [
-      { id: 'home',     label: 'Home',     icon: 'home' },
-      { id: 'planner',  label: 'Planner',  icon: 'calendar-days' },
-      { id: 'new',      label: '',         icon: 'plus',    fab: true },
-      { id: 'channels', label: 'Channels', icon: 'radio-tower' },
-      { id: 'more',     label: 'Altro',    icon: 'menu' },
+      { id: 'home',         label: 'Home',         icon: 'home' },
+      { id: 'planner',      label: 'Planner',      icon: 'calendar-days' },
+      { id: 'calendari',    label: 'Calendari',    icon: 'calendar-check' },
+      { id: 'prenotazioni', label: 'Prenotazioni', icon: 'list-checks' },
     ];
 
     const BottomNav = ({ active, onChange }) => (
-      <nav className="border-t border-slate-200 bg-white grid grid-cols-5 h-[68px] safe-bottom">
+      <nav className="border-t border-slate-200 bg-white grid grid-cols-4 h-[68px] safe-bottom">
         {NAV_ITEMS.map(item => {
-          if (item.fab) {
-            return (
-              <div key={item.id} className="flex items-center justify-center -mt-6">
-                <button
-                  onClick={() => onChange('new')}
-                  className="w-14 h-14 rounded-full bg-primary-600 text-white shadow-lg hover:bg-primary-700 flex items-center justify-center"
-                >
-                  <Icon name="plus" className="w-7 h-7" strokeWidth={2.5} />
-                </button>
-              </div>
-            );
-          }
           const isActive = active === item.id;
           return (
             <button
@@ -1264,14 +1290,9 @@
             return <Placeholder title="Home" subtitle="La nuova home stile Krossbooking arriverà nello step 5." />;
           case 'planner':
             return <Planner onOpenBooking={openBooking} />;
-          case 'channels':
-            return <Placeholder title="Channels" subtitle="Gestione canali — da definire." />;
-          case 'more':
-            return <MorePage onNavigate={(id) => setRoute({ name: id })} />;
           case 'calendari':
             return <CalendariList
                      onOpenApartment={(id) => setRoute({ name: 'calendari-detail', apartmentId: id })}
-                     onBack={() => setRoute({ name: 'more' })}
                    />;
           case 'calendari-detail':
             return <CalendariDetail
@@ -1282,18 +1303,15 @@
             return <Placeholder title="Prenotazioni" subtitle="Lista prenotazioni stile Booking Pulse — step 4." />;
           case 'booking':
             return <BookingDetail code={route.code} onBack={goBack} />;
-          case 'new':
-            return <Placeholder title="Nuova prenotazione" subtitle="Form di creazione manuale — da definire." />;
           default:
             return null;
         }
       };
 
-      // Map route to active nav id
-      const NAV_ROUTES = ['home','planner','channels','more','new'];
+      // Active nav id mapping
       const activeNav =
-        NAV_ROUTES.includes(route.name)              ? route.name :
-        ['calendari','calendari-detail','prenotazioni'].includes(route.name) ? 'more' :
+        ['home','planner','calendari','prenotazioni'].includes(route.name) ? route.name :
+        route.name === 'calendari-detail' ? 'calendari' :
         'planner';
 
       // Hide bottom nav on full-screen detail views
