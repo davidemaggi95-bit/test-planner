@@ -74,7 +74,13 @@
        ─────────────────────────────────────────────────────────── */
     const SUPABASE_URL      = 'https://ilrwnievrztdncneconb.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlscnduaWV2cnp0ZG5jbmVjb25iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNTMwMzcsImV4cCI6MjA5MDcyOTAzN30._ZxxtLfEZeLsFQaUBviw903m_Aa_mb4JXrEhruTGtG0';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+
+    if (!window.supabase || !window.supabase.createClient) {
+      document.body.innerHTML = '<div style="padding:24px;font-family:sans-serif;color:#dc2626">Errore: libreria Supabase non caricata. Verifica la connessione di rete o ricarica la pagina.</div>';
+      throw new Error('Supabase library not loaded');
+    }
+
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
@@ -1921,7 +1927,7 @@
       // Load profile (role) for a given user
       const loadProfile = useCallback(async (userId) => {
         if (!userId) { setProfile(null); return; }
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
           .from('app_users')
           .select('user_id, email, full_name, role')
           .eq('user_id', userId)
@@ -1938,14 +1944,14 @@
       useEffect(() => {
         let active = true;
         // Get current session on mount
-        supabase.auth.getSession().then(async ({ data: { session } }) => {
+        supabaseClient.auth.getSession().then(async ({ data: { session } }) => {
           if (!active) return;
           setSession(session);
           if (session?.user) await loadProfile(session.user.id);
           setLoading(false);
         });
         // Subscribe to future changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+        const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(async (_event, newSession) => {
           if (!active) return;
           setSession(newSession);
           if (newSession?.user) await loadProfile(newSession.user.id);
@@ -1958,12 +1964,12 @@
       }, [loadProfile]);
 
       const signIn = async (email, password) => {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (error) throw error;
       };
 
       const signOut = async () => {
-        await supabase.auth.signOut();
+        await supabaseClient.auth.signOut();
         setSession(null);
         setProfile(null);
       };
