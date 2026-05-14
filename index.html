@@ -41,6 +41,9 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+  <!-- Supabase JS client -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
   <style>
     html, body, #root { height: 100%; }
     body {
@@ -64,7 +67,20 @@
   <div id="root"></div>
 
   <script type="text/babel" data-presets="react">
-    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+    const { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext } = React;
+
+    /* ─────────────────────────────────────────────────────────────
+       SUPABASE CLIENT
+       ─────────────────────────────────────────────────────────── */
+    const SUPABASE_URL      = 'https://ilrwnievrztdncneconb.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlscnduaWV2cnp0ZG5jbmVjb25iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNTMwMzcsImV4cCI6MjA5MDcyOTAzN30._ZxxtLfEZeLsFQaUBviw903m_Aa_mb4JXrEhruTGtG0';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        storageKey: 'pms-auth',
+      },
+    });
 
     /* ─────────────────────────────────────────────────────────────
        MOCK DATA
@@ -302,6 +318,9 @@
       'log-in':         '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/>',
       'log-out':        '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
       'bed':            '<path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/>',
+      'eye':            '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+      'eye-off':        '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/>',
+      'log-out-icon':   '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
     };
 
     const Icon = React.memo(({ name, className = 'w-5 h-5', strokeWidth = 2 }) => {
@@ -1278,6 +1297,7 @@
        ─────────────────────────────────────────────────────────── */
 
     const Home = ({ onOpenBooking }) => {
+      const { signOut, profile, isAdmin, isCleaning } = useAuth();
       const today = startOfDay(new Date());
       const todayISO = fmtISO(today);
       const [section, setSection] = useState('arrivals'); // 'arrivals' | 'departures' | 'inhouse'
@@ -1322,9 +1342,14 @@
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-[12px] text-slate-500 capitalize">{dateLabel}</p>
-                <h1 className="text-[28px] font-bold tracking-tight text-slate-900 mt-0.5">Buongiorno</h1>
+                <h1 className="text-[28px] font-bold tracking-tight text-slate-900 mt-0.5">
+                  Ciao{profile?.full_name ? `, ${profile.full_name.split(' ')[0]}` : ''}
+                </h1>
+                {isCleaning && (
+                  <p className="text-[11px] font-medium text-primary-600 mt-1">Vista pulizie</p>
+                )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <button className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center" aria-label="Cerca">
                   <Icon name="search" className="w-5 h-5 text-slate-700" />
                 </button>
@@ -1335,6 +1360,14 @@
                 <button className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center relative" aria-label="Notifiche">
                   <Icon name="bell" className="w-5 h-5 text-slate-700" />
                   <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-danger" />
+                </button>
+                <button
+                  onClick={signOut}
+                  className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center"
+                  aria-label="Esci"
+                  title="Esci"
+                >
+                  <Icon name="log-out" className="w-5 h-5 text-slate-700" />
                 </button>
               </div>
             </div>
@@ -1874,7 +1907,221 @@
     /* ─────────────────────────────────────────────────────────────
        APP SHELL — simple state-based routing (no React Router needed)
        ─────────────────────────────────────────────────────────── */
-    const App = () => {
+    /* ─────────────────────────────────────────────────────────────
+       AUTH CONTEXT — handles Supabase session + role lookup
+       ─────────────────────────────────────────────────────────── */
+    const AuthContext = createContext(null);
+    const useAuth = () => useContext(AuthContext);
+
+    const AuthProvider = ({ children }) => {
+      const [session, setSession] = useState(null);
+      const [profile, setProfile] = useState(null);  // { user_id, email, full_name, role }
+      const [loading, setLoading] = useState(true);
+
+      // Load profile (role) for a given user
+      const loadProfile = useCallback(async (userId) => {
+        if (!userId) { setProfile(null); return; }
+        const { data, error } = await supabase
+          .from('app_users')
+          .select('user_id, email, full_name, role')
+          .eq('user_id', userId)
+          .single();
+        if (error) {
+          console.error('Profile load failed:', error.message);
+          setProfile(null);
+        } else {
+          setProfile(data);
+        }
+      }, []);
+
+      // Listen for auth changes
+      useEffect(() => {
+        let active = true;
+        // Get current session on mount
+        supabase.auth.getSession().then(async ({ data: { session } }) => {
+          if (!active) return;
+          setSession(session);
+          if (session?.user) await loadProfile(session.user.id);
+          setLoading(false);
+        });
+        // Subscribe to future changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+          if (!active) return;
+          setSession(newSession);
+          if (newSession?.user) await loadProfile(newSession.user.id);
+          else setProfile(null);
+        });
+        return () => {
+          active = false;
+          subscription.unsubscribe();
+        };
+      }, [loadProfile]);
+
+      const signIn = async (email, password) => {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      };
+
+      const signOut = async () => {
+        await supabase.auth.signOut();
+        setSession(null);
+        setProfile(null);
+      };
+
+      const role = profile?.role || null;          // 'admin' | 'cleaning' | null
+      const isAdmin = role === 'admin';
+      const isCleaning = role === 'cleaning';
+
+      const value = { session, profile, role, isAdmin, isCleaning, loading, signIn, signOut };
+      return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+    };
+
+    /* ─────────────────────────────────────────────────────────────
+       LOGIN SCREEN
+       ─────────────────────────────────────────────────────────── */
+    const LoginScreen = () => {
+      const { signIn } = useAuth();
+      const [email, setEmail] = useState('');
+      const [password, setPassword] = useState('');
+      const [showPwd, setShowPwd] = useState(false);
+      const [busy, setBusy] = useState(false);
+      const [error, setError] = useState(null);
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (busy) return;
+        setError(null);
+        setBusy(true);
+        try {
+          await signIn(email.trim(), password);
+          // success — AuthProvider catches it via onAuthStateChange
+        } catch (err) {
+          setError(
+            err.message?.includes('Invalid login') || err.message?.includes('invalid')
+              ? 'Email o password non corrette'
+              : err.message || 'Errore di accesso'
+          );
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      return (
+        <div className="flex flex-col h-full max-w-[480px] mx-auto bg-white">
+          {/* Top header with gradient */}
+          <div
+            className="px-6 pt-16 pb-10 text-white"
+            style={{ background: 'linear-gradient(180deg, #2563EB 0%, #3B82F6 100%)' }}
+          >
+            <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-4">
+              <Icon name="calendar-check" className="w-7 h-7 text-white" strokeWidth={2.2} />
+            </div>
+            <h1 className="text-[28px] font-bold leading-tight">PMS Dashboard</h1>
+            <p className="text-sm text-white/85 mt-1">Accedi per gestire le tue prenotazioni</p>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="flex-1 px-6 pt-8 flex flex-col">
+            <label className="block">
+              <span className="text-[12px] font-semibold tracking-wider text-slate-500 uppercase">Email</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="esempio@email.it"
+                autoComplete="username"
+                required
+                className="mt-1.5 w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-200 text-[15px] text-slate-900 placeholder-slate-400 focus:outline-none focus:border-primary-500 focus:bg-white"
+              />
+            </label>
+
+            <label className="block mt-4">
+              <span className="text-[12px] font-semibold tracking-wider text-slate-500 uppercase">Password</span>
+              <div className="mt-1.5 relative">
+                <input
+                  type={showPwd ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  required
+                  className="w-full px-4 py-3 pr-12 rounded-xl bg-slate-100 border border-slate-200 text-[15px] text-slate-900 placeholder-slate-400 focus:outline-none focus:border-primary-500 focus:bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPwd(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700"
+                  aria-label={showPwd ? 'Nascondi password' : 'Mostra password'}
+                >
+                  <Icon name={showPwd ? 'eye-off' : 'eye'} className="w-5 h-5" />
+                </button>
+              </div>
+            </label>
+
+            {error && (
+              <div className="mt-4 px-4 py-3 rounded-xl bg-danger/10 border border-danger/20 flex items-start gap-2">
+                <Icon name="alert-circle" className="w-5 h-5 text-danger flex-shrink-0 mt-0.5" />
+                <span className="text-[13px] text-danger leading-snug">{error}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={busy || !email || !password}
+              className="mt-6 w-full py-3.5 rounded-full bg-primary-600 hover:bg-primary-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold text-[15px] transition"
+            >
+              {busy ? 'Accesso in corso...' : 'Accedi'}
+            </button>
+
+            <div className="mt-auto py-6 text-center text-[11px] text-slate-400">
+              © {new Date().getFullYear()} PMS Dashboard
+            </div>
+          </form>
+        </div>
+      );
+    };
+
+    /* ─────────────────────────────────────────────────────────────
+       LOADING SCREEN — shown while auth state is loading
+       ─────────────────────────────────────────────────────────── */
+    const LoadingScreen = () => (
+      <div className="flex flex-col h-full max-w-[480px] mx-auto bg-white items-center justify-center">
+        <div className="w-12 h-12 rounded-full border-4 border-primary-100 border-t-primary-600 animate-spin" />
+        <p className="mt-4 text-sm text-slate-500">Caricamento...</p>
+      </div>
+    );
+
+    /* ─────────────────────────────────────────────────────────────
+       MISSING PROFILE SCREEN — user exists in auth but not in app_users
+       ─────────────────────────────────────────────────────────── */
+    const MissingProfileScreen = () => {
+      const { profile, session, signOut } = useAuth();
+      return (
+        <div className="flex flex-col h-full max-w-[480px] mx-auto bg-white items-center justify-center px-6 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-warn/10 flex items-center justify-center mb-4">
+            <Icon name="alert-circle" className="w-8 h-8 text-warn" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900">Profilo non configurato</h2>
+          <p className="text-sm text-slate-500 mt-2 max-w-xs">
+            L'account <span className="font-medium text-slate-700">{session?.user?.email}</span> esiste ma non è associato a un ruolo.
+            <br /><br />
+            Contatta l'amministratore per essere aggiunto alla tabella <code className="bg-slate-100 px-1 rounded">app_users</code>.
+          </p>
+          <button
+            onClick={signOut}
+            className="mt-6 px-6 py-3 rounded-full bg-primary-600 text-white font-semibold text-sm"
+          >
+            Esci
+          </button>
+        </div>
+      );
+    };
+
+    /* ─────────────────────────────────────────────────────────────
+       APP SHELL — the actual authenticated app (router + pages)
+       ─────────────────────────────────────────────────────────── */
+    const AppShell = () => {
+      const { signOut, profile } = useAuth();
       const [route, setRoute] = useState({ name: 'home' });
 
       // openBooking remembers where we came from so the back button returns there
@@ -1935,7 +2182,22 @@
       );
     };
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    /* ─────────────────────────────────────────────────────────────
+       ROOT — auth gating
+       ─────────────────────────────────────────────────────────── */
+    const App = () => {
+      const { loading, session, profile } = useAuth();
+      if (loading) return <LoadingScreen />;
+      if (!session) return <LoginScreen />;
+      if (!profile) return <MissingProfileScreen />;
+      return <AppShell />;
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    );
   </script>
 </body>
 </html>
