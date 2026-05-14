@@ -298,6 +298,10 @@
       'alert-circle':   '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
       'settings':       '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
       'construction':   '<rect x="2" y="6" width="20" height="8" rx="1"/><path d="M17 14v7"/><path d="M7 14v7"/><path d="M17 3v3"/><path d="M7 3v3"/><path d="M10 14 2.3 6.3"/><path d="m14 6 7.7 7.7"/><path d="m8 6 8 8"/>',
+      'bell':           '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+      'log-in':         '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/>',
+      'log-out':        '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
+      'bed':            '<path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/>',
     };
 
     const Icon = React.memo(({ name, className = 'w-5 h-5', strokeWidth = 2 }) => {
@@ -1270,6 +1274,228 @@
     };
 
     /* ─────────────────────────────────────────────────────────────
+       HOME — today overview (Krossbooking-inspired, light theme)
+       ─────────────────────────────────────────────────────────── */
+
+    const Home = ({ onOpenBooking }) => {
+      const today = startOfDay(new Date());
+      const todayISO = fmtISO(today);
+      const [section, setSection] = useState('arrivals'); // 'arrivals' | 'departures' | 'inhouse'
+
+      // Categorize bookings relative to today
+      const { arrivals, departures, inhouse } = useMemo(() => {
+        const a = [], d = [], h = [];
+        BOOKINGS.forEach(b => {
+          if (b.status === 'cancelled') return;
+          if (b.check_in === todayISO) a.push(b);
+          if (b.check_out === todayISO) d.push(b);
+          // in-house = check-in <= today < check-out, excluding today's arrivals/departures
+          const ci = parseISO(b.check_in);
+          const co = parseISO(b.check_out);
+          if (ci < today && co > today) h.push(b);
+        });
+        // sort by surname for in-house, by check_in_time then surname for the rest
+        const byTime = (x, y) => (x.check_in_time || '99:99').localeCompare(y.check_in_time || '99:99');
+        const byName = (x, y) => x.last_name.localeCompare(y.last_name);
+        a.sort(byTime);
+        d.sort(byTime);
+        h.sort(byName);
+        return { arrivals: a, departures: d, inhouse: h };
+      }, [todayISO]);
+
+      const sections = [
+        { id: 'arrivals',   label: 'Arrivi',      list: arrivals,   icon: 'log-in',  color: 'bg-emerald-500',  light: 'bg-emerald-50',  text: 'text-emerald-600' },
+        { id: 'departures', label: 'Partenze',    list: departures, icon: 'log-out', color: 'bg-amber-500',    light: 'bg-amber-50',    text: 'text-amber-600' },
+        { id: 'inhouse',    label: 'Permanenze',  list: inhouse,    icon: 'bed',     color: 'bg-primary-600',  light: 'bg-primary-50',  text: 'text-primary-600' },
+      ];
+
+      const activeSection = sections.find(s => s.id === section);
+      const activeList = activeSection.list;
+
+      // Italian date header
+      const dateLabel = fmtItalianFull(today);
+
+      return (
+        <div className="flex flex-col h-full bg-slate-50">
+          {/* Header */}
+          <div className="bg-white px-5 pt-6 pb-4 border-b border-slate-100">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[12px] text-slate-500 capitalize">{dateLabel}</p>
+                <h1 className="text-[28px] font-bold tracking-tight text-slate-900 mt-0.5">Buongiorno</h1>
+              </div>
+              <div className="flex items-center gap-2">
+                <button className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center" aria-label="Cerca">
+                  <Icon name="search" className="w-5 h-5 text-slate-700" />
+                </button>
+                <button className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center relative" aria-label="Messaggi">
+                  <Icon name="message-circle" className="w-5 h-5 text-slate-700" />
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-danger" />
+                </button>
+                <button className="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center relative" aria-label="Notifiche">
+                  <Icon name="bell" className="w-5 h-5 text-slate-700" />
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-danger" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Scrollable body */}
+          <div className="flex-1 overflow-y-auto">
+            {/* Three summary cards — horizontal scroll */}
+            <div className="px-4 pt-4">
+              <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-4 px-4 pb-2">
+                {sections.map(s => {
+                  const isActive = section === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => setSection(s.id)}
+                      className={`flex-shrink-0 w-[150px] rounded-2xl p-4 text-left transition border-2 ${
+                        isActive
+                          ? `bg-white border-primary-600 shadow-md`
+                          : `bg-white border-transparent hover:border-slate-200`
+                      }`}
+                    >
+                      <div className={`w-9 h-9 rounded-xl ${s.light} flex items-center justify-center mb-2.5`}>
+                        <Icon name={s.icon} className={`w-5 h-5 ${s.text}`} />
+                      </div>
+                      <div className="text-[12px] font-medium text-slate-500">{s.label}</div>
+                      <div className="text-[28px] font-bold text-slate-900 leading-none mt-1">{s.list.length}</div>
+                      <div className="text-[11px] text-slate-400 mt-1">
+                        {s.list.length === 0 ? 'oggi nessuno' :
+                         s.list.length === 1 ? 'oggi 1 ospite' :
+                         `oggi ${s.list.length} ospiti`}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Detail list for selected section */}
+            <div className="px-4 mt-5">
+              <div className="flex items-center justify-between mb-3 px-1">
+                <h2 className="text-[18px] font-bold text-slate-900">
+                  {activeSection.label} di oggi
+                </h2>
+                {activeList.length > 0 && (
+                  <span className={`text-[12px] font-semibold px-2 py-0.5 rounded-full ${activeSection.light} ${activeSection.text}`}>
+                    {activeList.length}
+                  </span>
+                )}
+              </div>
+
+              {activeList.length === 0 ? (
+                <EmptyToday section={activeSection} />
+              ) : (
+                <div className="space-y-2 pb-6">
+                  {activeList.map(b => (
+                    <TodayCard
+                      key={b.code}
+                      booking={b}
+                      kind={section}
+                      onClick={() => onOpenBooking(b.code)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // Empty state
+    const EmptyToday = ({ section }) => {
+      const messages = {
+        arrivals:   { title: 'Nessun arrivo oggi',      sub: 'Goditi la giornata tranquilla.' },
+        departures: { title: 'Nessuna partenza oggi',   sub: 'Tutti gli ospiti restano in struttura.' },
+        inhouse:    { title: 'Nessun ospite in casa',   sub: 'Tutti gli appartamenti sono liberi.' },
+      };
+      const m = messages[section.id] || messages.arrivals;
+      return (
+        <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center">
+          <div className={`w-14 h-14 rounded-2xl ${section.light} flex items-center justify-center mx-auto mb-3`}>
+            <Icon name={section.icon} className={`w-7 h-7 ${section.text}`} />
+          </div>
+          <h3 className="text-base font-semibold text-slate-900">{m.title}</h3>
+          <p className="text-sm text-slate-500 mt-1">{m.sub}</p>
+        </div>
+      );
+    };
+
+    // Card for a single arrival/departure/inhouse entry
+    const TodayCard = React.memo(({ booking, kind, onClick }) => {
+      const apt = APARTMENTS.find(a => a.id === booking.apartment_id);
+      const today = startOfDay(new Date());
+      const nightsLeft = kind === 'inhouse'
+        ? diffDays(today, parseISO(booking.check_out))
+        : null;
+
+      const time = kind === 'arrivals'   ? booking.check_in_time :
+                   kind === 'departures' ? booking.check_out_time : null;
+
+      const actionLabel =
+        kind === 'arrivals'   ? 'Check-in'  :
+        kind === 'departures' ? 'Check-out' : null;
+
+      return (
+        <button
+          onClick={onClick}
+          className="w-full bg-white rounded-2xl border border-slate-100 hover:border-slate-200 hover:shadow-sm active:scale-[0.99] transition p-3 text-left"
+        >
+          <div className="flex items-start gap-3">
+            <ChannelBadge channel={booking.channel} />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[15px] font-semibold text-slate-900 truncate max-w-[70%]">
+                  {booking.last_name} {booking.first_name}
+                </span>
+                {time && (
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                    {time}
+                  </span>
+                )}
+              </div>
+              <div className="text-[13px] text-slate-600 truncate mt-0.5">
+                {apt ? apt.name : ''}
+              </div>
+              <div className="flex items-center gap-3 text-[12px] text-slate-500 mt-1">
+                <span className="flex items-center gap-1">
+                  <Icon name="users" className="w-3.5 h-3.5" /> {booking.guests}
+                </span>
+                {nightsLeft !== null && (
+                  <span className="flex items-center gap-1">
+                    <Icon name="moon" className="w-3.5 h-3.5" />
+                    {nightsLeft} {nightsLeft === 1 ? 'notte rimasta' : 'notti rimaste'}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {actionLabel && (
+            <div className="mt-3 flex gap-2">
+              <span
+                onClick={(e) => { e.stopPropagation(); /* placeholder for check-in action */ }}
+                className="flex-1 py-2 rounded-full bg-primary-600 hover:bg-primary-700 text-white text-[13px] font-semibold text-center transition"
+              >
+                {actionLabel}
+              </span>
+              <span
+                onClick={(e) => { e.stopPropagation(); /* placeholder for chat */ }}
+                className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center"
+              >
+                <Icon name="message-circle" className="w-4 h-4 text-slate-600" />
+              </span>
+            </div>
+          )}
+        </button>
+      );
+    });
+
+    /* ─────────────────────────────────────────────────────────────
        PRENOTAZIONI — list page (Booking Pulse style, light theme)
        ─────────────────────────────────────────────────────────── */
 
@@ -1648,7 +1874,7 @@
        APP SHELL — simple state-based routing (no React Router needed)
        ─────────────────────────────────────────────────────────── */
     const App = () => {
-      const [route, setRoute] = useState({ name: 'planner' });
+      const [route, setRoute] = useState({ name: 'home' });
 
       // openBooking remembers where we came from so the back button returns there
       const openBooking = (code, origin) => setRoute({ name: 'booking', code, origin });
@@ -1656,7 +1882,7 @@
       const renderPage = () => {
         switch (route.name) {
           case 'home':
-            return <Placeholder title="Home" subtitle="La nuova home stile Krossbooking arriverà nello step 5." />;
+            return <Home onOpenBooking={(code) => openBooking(code, { name: 'home' })} />;
           case 'planner':
             return <Planner onOpenBooking={(code) => openBooking(code, { name: 'planner' })} />;
           case 'calendari':
