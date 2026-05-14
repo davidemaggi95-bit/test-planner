@@ -74,15 +74,15 @@
        ─────────────────────────────────────────────────────────── */
 
     const APARTMENTS = [
-      { id: 'a1', name: '21 Manara Trastevere',  short: '21 Manara',          code: 'MAN', address: 'Via Manara 21, Roma' },
-      { id: 'a2', name: '35 Gozzadini',          short: '35 Gozzadini',       code: 'GOZ', address: 'Via Gozzadini 35, Roma' },
-      { id: 'a3', name: '42 Gandino Superior',   short: '42 Gandino Sup.',    code: 'GDS', address: 'Via Gandino 42, Roma' },
-      { id: 'a4', name: '50 Gandino Deluxe',     short: '50 Gandino Dlx.',    code: 'GDD', address: 'Via Gandino 50, Roma' },
-      { id: 'a5', name: '63 Brancaleone',        short: '63 Brancaleone',     code: 'BRC', address: 'Via Brancaleone 63, Roma' },
-      { id: 'a6', name: 'EV Vatican',            short: 'EV Vatican',         code: 'EVV', address: 'Via Gregorio VII, 58, Roma' },
-      { id: 'a7', name: 'R. dei Pontefici',      short: 'R. Pontefici',       code: 'RDP', address: 'Via Gregorio VII, 58, Roma' },
-      { id: 'a8', name: 'St. Peter Station',     short: 'St. Peter St.',      code: 'SPS', address: 'Via della Stazione di S. Pietro, Roma' },
-      { id: 'a9', name: 'St. Peter Deluxe',      short: 'St. Peter Dlx.',     code: 'SPD', address: 'Via della Stazione di S. Pietro, Roma' },
+      { id: 'a1', name: '21 Manara Trastevere',     short: '21 Manara',        code: 'MAN', address: 'Via Luciano Manara, 21' },
+      { id: 'a2', name: '35 Gozzadini',             short: '35 Gozzadini',     code: 'GOZ', address: 'Via dei Gozzadini, 35' },
+      { id: 'a3', name: '42 Gandino Superior',      short: '42 Gandino Sup.',  code: 'GDS', address: 'Via Giovan Battista Gandino, 42' },
+      { id: 'a4', name: '50 Gandino Deluxe',        short: '50 Gandino Dlx.',  code: 'GDD', address: 'Via Giovan Battista Gandino, 50' },
+      { id: 'a5', name: '63 Brancaleone',           short: '63 Brancaleone',   code: 'BRC', address: 'Rampa Brancaleone, 63' },
+      { id: 'a6', name: 'EV Vatican Apt',           short: 'EV Vatican',       code: 'EVV', address: 'Via della Madonna del Riposo, 46' },
+      { id: 'a7', name: 'Residenza dei Pontefici',  short: 'R. Pontefici',     code: 'RDP', address: 'Via Gregorio VII, 58' },
+      { id: 'a8', name: 'St. Peter Station (Int.9)',short: 'St. Peter St.',    code: 'SPS', address: 'Via della Stazione di San Pietro, 35' },
+      { id: 'a9', name: 'St. Peter Deluxe (Int.4)', short: 'St. Peter Dlx.',   code: 'SPD', address: 'Via della Stazione di San Pietro, 35' },
     ];
 
     // helper: build YYYY-MM-DD
@@ -395,9 +395,9 @@
        PLANNER PAGE
        ─────────────────────────────────────────────────────────── */
 
-    const CELL_W = 80;       // pixel width per day cell
-    const ROW_H  = 76;       // pixel height per apartment row
-    const SIDEBAR_W = 132;   // apartment column width
+    const CELL_W = 58;       // pixel width per day cell (compact)
+    const ROW_H  = 56;       // pixel height per apartment row (compact)
+    const SIDEBAR_W = 110;   // apartment column width (compact)
     const WINDOW_DAYS = 30;  // load ±30 days from selected date
 
     const Planner = ({ onOpenBooking }) => {
@@ -495,7 +495,7 @@
                 {/* Header row (day labels) */}
                 <div
                   className="sticky top-0 z-20 bg-white border-b border-slate-200 flex"
-                  style={{ height: 56 }}
+                  style={{ height: 48 }}
                 >
                   {/* sidebar spacer */}
                   <div
@@ -509,7 +509,7 @@
                     return (
                       <div
                         key={i}
-                        className="flex flex-col items-center justify-center text-[11px]"
+                        className="flex flex-col items-center justify-center text-[10px]"
                         style={{ width: CELL_W, minWidth: CELL_W }}
                       >
                         <div className={`uppercase tracking-wide ${isSelected ? 'text-primary-600 font-semibold' : 'text-slate-400'}`}>
@@ -517,7 +517,7 @@
                         </div>
                         <div
                           className={`
-                            mt-0.5 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+                            mt-0.5 w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-medium
                             ${isSelected ? 'bg-primary-600 text-white' :
                               isToday    ? 'border border-primary-600 text-primary-600' :
                                            'text-slate-700'}
@@ -539,11 +539,11 @@
                   >
                     {/* sidebar: apartment label */}
                     <div
-                      className="sticky left-0 z-10 bg-white border-r border-slate-200 flex items-center px-3"
+                      className="sticky left-0 z-10 bg-white border-r border-slate-200 flex items-center px-2"
                       style={{ width: SIDEBAR_W, minWidth: SIDEBAR_W }}
                     >
-                      <div className="w-1 h-10 bg-primary-600 rounded-full mr-2.5 flex-shrink-0" />
-                      <div className="text-[13px] leading-tight text-slate-800 font-medium">
+                      <div className="w-[3px] h-7 bg-primary-600 rounded-full mr-2 flex-shrink-0" />
+                      <div className="text-[11px] leading-tight text-slate-800 font-medium line-clamp-2">
                         {apt.name}
                       </div>
                     </div>
@@ -580,24 +580,21 @@
                           <button
                             key={b.code}
                             onClick={() => onOpenBooking(b.code)}
-                            className={`
-                              absolute flex items-center gap-2 rounded-full pl-1.5 pr-3 text-white text-sm font-medium
-                              shadow-sm hover:shadow-md transition-shadow
-                              ${meta.pill}
-                            `}
+                            className="absolute flex items-center gap-1.5 rounded-full pl-1 pr-2 text-white text-xs font-medium shadow-sm hover:shadow-md transition-shadow"
                             style={{
                               left: leftPx,
                               width: widthPx,
-                              top: (ROW_H - 36) / 2,
-                              height: 36,
+                              top: (ROW_H - 26) / 2,
+                              height: 26,
                               opacity: isPast ? 0.55 : 1,
+                              backgroundColor: '#16A34A', // Krossbooking green
                             }}
-                            title={`${b.guests} • ${b.first_name} ${b.last_name}`}
+                            title={`${b.guests} • ${b.last_name} ${b.first_name}`}
                           >
-                            <span className="w-7 h-7 rounded-full bg-white/95 flex items-center justify-center flex-shrink-0">
-                              <ChannelLogo channel={b.channel} className="w-5 h-5" />
+                            <span className="w-[20px] h-[20px] rounded-full bg-white flex items-center justify-center flex-shrink-0">
+                              <ChannelLogo channel={b.channel} className="w-[14px] h-[14px]" />
                             </span>
-                            <span className="truncate">
+                            <span className="truncate text-[11px]">
                               {b.guests} • {b.last_name} {b.first_name}
                             </span>
                           </button>
@@ -939,12 +936,14 @@
                     <span className="text-white font-bold text-lg drop-shadow-sm">{apt.code}</span>
                   </div>
 
-                  {/* Name + status */}
+                  {/* Name + address */}
                   <div className="flex-1 min-w-0 pr-1">
-                    <div className="text-[17px] font-semibold text-slate-900 leading-tight line-clamp-2">
+                    <div className="text-[16px] font-semibold text-slate-900 leading-tight line-clamp-2">
                       {apt.name}
                     </div>
-                    <div className="mt-1 text-[14px] text-slate-500">Pubblicato</div>
+                    <div className="mt-1 text-[12px] text-slate-500 line-clamp-2 leading-snug">
+                      {apt.address}
+                    </div>
                   </div>
 
                   {/* Mini availability dot pattern — Airbnb style 7×5 grid */}
@@ -952,9 +951,8 @@
                     <div className="grid grid-cols-7 gap-[3px]">
                       {strip.map((s, i) => {
                         if (s.booking) {
-                          const meta = CHANNEL_META[s.booking.channel];
                           return (
-                            <div key={i} className={`h-[6px] rounded-full ${meta.pill}`} />
+                            <div key={i} className="h-[6px] rounded-full" style={{ backgroundColor: '#16A34A' }} />
                           );
                         }
                         if (s.center) {
@@ -1037,7 +1035,7 @@
     };
 
     // A single month grid — Airbnb style
-    const MonthGrid = ({ year, month, aptId }) => {
+    const MonthGrid = ({ year, month, aptId, onOpenBooking }) => {
       const today = startOfDay(new Date());
       const firstOfMonth = new Date(year, month, 1);
       const offset = (firstOfMonth.getDay() + 6) % 7;
@@ -1079,7 +1077,6 @@
                 }
                 const isPast = d < today;
                 const isToday = isSameDay(d, today);
-                // Is this cell occupied by a booking pill?
                 const occupied = pills.some(p => {
                   const cellRow = Math.floor(i / 7);
                   const cellCol = i % 7;
@@ -1108,19 +1105,17 @@
               })}
             </div>
 
-            {/* Booking pills overlay — absolute positioned over rows */}
+            {/* Booking pills overlay — green (Krossbooking style), clickable */}
             {pills.map((p, idx) => {
-              const meta = CHANNEL_META[p.booking.channel];
               const colW = `calc((100% - 3px * 6) / 7)`;
               const left = `calc((${colW} + 3px) * ${p.colStart})`;
               const width = `calc((${colW} + 3px) * ${p.colEnd - p.colStart + 1} - 3px)`;
-              const top = p.rowIdx * (CELL_HEIGHT + 3) + CELL_HEIGHT / 2 + 2; // vertical center-ish in cell
-              const initial = p.booking.first_name.charAt(0).toUpperCase();
-              const lastInitial = p.booking.last_name.charAt(0).toUpperCase();
+              const top = p.rowIdx * (CELL_HEIGHT + 3) + CELL_HEIGHT / 2 + 2;
               return (
-                <div
+                <button
                   key={idx}
-                  className={`absolute ${meta.pill} text-white text-xs font-medium flex items-center gap-1.5 z-10 shadow-sm`}
+                  onClick={() => onOpenBooking && onOpenBooking(p.booking.code)}
+                  className="absolute text-white text-xs font-medium flex items-center gap-1.5 z-10 shadow-sm hover:shadow-md transition-shadow"
                   style={{
                     left,
                     width,
@@ -1128,25 +1123,23 @@
                     height: 26,
                     paddingLeft: p.isStart ? 3 : 6,
                     paddingRight: p.isEnd ? 8 : 4,
+                    backgroundColor: '#16A34A', // Krossbooking green
                     borderTopLeftRadius:    p.isStart ? 13 : 0,
                     borderBottomLeftRadius: p.isStart ? 13 : 0,
                     borderTopRightRadius:    p.isEnd ? 13 : 0,
                     borderBottomRightRadius: p.isEnd ? 13 : 0,
                   }}
+                  title={`${p.booking.last_name} ${p.booking.first_name}`}
                 >
                   {p.isStart && (
-                    <div className="w-[22px] h-[22px] rounded-full bg-white/95 flex items-center justify-center flex-shrink-0 text-[10px] font-bold"
-                         style={{
-                           color: p.booking.channel === 'booking' ? '#003B95' :
-                                  p.booking.channel === 'airbnb'  ? '#FF385C' : '#0F61B5'
-                         }}>
-                      {lastInitial}
+                    <div className="w-[22px] h-[22px] rounded-full bg-white flex items-center justify-center flex-shrink-0">
+                      <ChannelLogo channel={p.booking.channel} className="w-[14px] h-[14px]" />
                     </div>
                   )}
                   <span className="truncate text-[11px]">
-                    {p.isStart ? p.booking.last_name : ''}
+                    {p.isStart ? `${p.booking.guests} • ${p.booking.last_name}` : ''}
                   </span>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -1154,7 +1147,7 @@
       );
     };
 
-    const CalendariDetail = ({ apartmentId, onBack }) => {
+    const CalendariDetail = ({ apartmentId, onBack, onOpenBooking }) => {
       const apt = APARTMENTS.find(a => a.id === apartmentId);
       const today = new Date();
       const startMonth = today.getMonth();
@@ -1213,7 +1206,7 @@
             className="flex-1 overflow-y-auto"
           >
             {months.map((m, i) => (
-              <MonthGrid key={`${m.year}-${m.month}`} year={m.year} month={m.month} aptId={apt.id} />
+              <MonthGrid key={`${m.year}-${m.month}`} year={m.year} month={m.month} aptId={apt.id} onOpenBooking={onOpenBooking} />
             ))}
             <div className="px-4 py-6 text-center text-xs text-slate-400">
               12 mesi visualizzati
@@ -1281,15 +1274,15 @@
     const App = () => {
       const [route, setRoute] = useState({ name: 'planner' });
 
-      const openBooking = (code) => setRoute({ name: 'booking', code });
-      const goBack = () => setRoute({ name: 'planner' });
+      // openBooking remembers where we came from so the back button returns there
+      const openBooking = (code, origin) => setRoute({ name: 'booking', code, origin });
 
       const renderPage = () => {
         switch (route.name) {
           case 'home':
             return <Placeholder title="Home" subtitle="La nuova home stile Krossbooking arriverà nello step 5." />;
           case 'planner':
-            return <Planner onOpenBooking={openBooking} />;
+            return <Planner onOpenBooking={(code) => openBooking(code, { name: 'planner' })} />;
           case 'calendari':
             return <CalendariList
                      onOpenApartment={(id) => setRoute({ name: 'calendari-detail', apartmentId: id })}
@@ -1298,11 +1291,15 @@
             return <CalendariDetail
                      apartmentId={route.apartmentId}
                      onBack={() => setRoute({ name: 'calendari' })}
+                     onOpenBooking={(code) => openBooking(code, { name: 'calendari-detail', apartmentId: route.apartmentId })}
                    />;
           case 'prenotazioni':
             return <Placeholder title="Prenotazioni" subtitle="Lista prenotazioni stile Booking Pulse — step 4." />;
           case 'booking':
-            return <BookingDetail code={route.code} onBack={goBack} />;
+            return <BookingDetail
+                     code={route.code}
+                     onBack={() => setRoute(route.origin || { name: 'planner' })}
+                   />;
           default:
             return null;
         }
@@ -1312,7 +1309,11 @@
       const activeNav =
         ['home','planner','calendari','prenotazioni'].includes(route.name) ? route.name :
         route.name === 'calendari-detail' ? 'calendari' :
-        'planner';
+        route.name === 'booking' && route.origin ? (
+          ['home','planner','calendari','prenotazioni'].includes(route.origin.name)
+            ? route.origin.name
+            : route.origin.name === 'calendari-detail' ? 'calendari' : 'planner'
+        ) : 'planner';
 
       // Hide bottom nav on full-screen detail views
       const hideNav = route.name === 'booking' || route.name === 'calendari-detail';
