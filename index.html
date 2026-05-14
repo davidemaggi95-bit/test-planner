@@ -595,12 +595,7 @@
                             title={`${b.guests} • ${b.first_name} ${b.last_name}`}
                           >
                             <span className="w-7 h-7 rounded-full bg-white/95 flex items-center justify-center flex-shrink-0">
-                              <span className={`text-[11px] font-bold ${
-                                b.channel === 'booking' ? 'text-booking' :
-                                b.channel === 'airbnb'  ? 'text-airbnb'  : 'text-vrbo'
-                              }`}>
-                                {meta.label}
-                              </span>
+                              <ChannelLogo channel={b.channel} className="w-5 h-5" />
                             </span>
                             <span className="truncate">
                               {b.guests} • {b.last_name} {b.first_name}
@@ -627,13 +622,48 @@
       cancelled: { label: 'Cancellata', bg: 'bg-danger', ring: 'ring-danger' },
     };
 
-    // Channel logo: render a circular badge with the channel initial in brand color.
+    // Channel logo SVG renderers — official brand glyphs simplified for circular badge
+    const ChannelLogo = ({ channel, className = 'w-6 h-6' }) => {
+      if (channel === 'booking') {
+        // Booking.com — stylized "B." in brand navy
+        return (
+          <svg viewBox="0 0 32 32" className={className} xmlns="http://www.w3.org/2000/svg">
+            <text x="16" y="23" textAnchor="middle"
+                  fontFamily="-apple-system, system-ui, sans-serif"
+                  fontWeight="900" fontSize="22" fill="#003B95">B.</text>
+          </svg>
+        );
+      }
+      if (channel === 'airbnb') {
+        // Airbnb "Bélo" mark — official rounded loop shape
+        return (
+          <svg viewBox="0 0 32 32" className={className} xmlns="http://www.w3.org/2000/svg">
+            <path fill="#FF385C" d="M16 3.5c-2.1 0-3.7 1.5-4.6 3.1-.7 1.1-1.4 2.5-2.2 4-.8 1.5-1.6 3-2.4 4.6-1.6 3.1-3 6.4-3 8.8 0 2.7 2 4.8 4.5 4.8 1.8 0 3.4-.9 4.6-2.1.8.8 2 1.4 3.1 1.4s2.3-.6 3.1-1.4c1.2 1.2 2.8 2.1 4.6 2.1 2.5 0 4.5-2.1 4.5-4.8 0-2.4-1.4-5.7-3-8.8-.8-1.6-1.6-3.1-2.4-4.6-.8-1.5-1.5-2.9-2.2-4-.9-1.6-2.5-3.1-4.6-3.1zm0 2.3c1.1 0 2 .8 2.6 1.9.6.9 1.3 2.3 2.1 3.7.8 1.5 1.6 3 2.3 4.5 1.6 3 2.8 6 2.8 7.6 0 1.5-1 2.5-2.2 2.5-1.2 0-2.4-.7-3.3-1.7.8-1 1.3-2.2 1.3-3.4 0-2.1-1.6-3.7-3.6-3.7s-3.6 1.6-3.6 3.7c0 1.2.5 2.4 1.3 3.4-.9 1-2.1 1.7-3.3 1.7-1.2 0-2.2-1-2.2-2.5 0-1.6 1.2-4.6 2.8-7.6.7-1.5 1.5-3 2.3-4.5.8-1.4 1.5-2.8 2.1-3.7.6-1.1 1.5-1.9 2.6-1.9zm0 14.4c.8 0 1.4.6 1.4 1.5 0 .6-.3 1.2-.7 1.7-.3.3-.5.4-.7.4s-.4-.1-.7-.4c-.4-.5-.7-1.1-.7-1.7 0-.9.6-1.5 1.4-1.5z"/>
+          </svg>
+        );
+      }
+      if (channel === 'vrbo') {
+        // VRBO — stylized house with V silhouette
+        return (
+          <svg viewBox="0 0 32 32" className={className} xmlns="http://www.w3.org/2000/svg">
+            <text x="16" y="22" textAnchor="middle"
+                  fontFamily="-apple-system, system-ui, sans-serif"
+                  fontWeight="900" fontSize="14" fill="#0F61B5"
+                  letterSpacing="-0.5">VRBO</text>
+          </svg>
+        );
+      }
+      return null;
+    };
+
+    // Channel badge: circular white container with the brand SVG inside
     const ChannelBadge = ({ channel, size = 'lg' }) => {
-      const meta = CHANNEL_META[channel];
-      const dims = size === 'lg' ? 'w-11 h-11 text-base' : 'w-7 h-7 text-xs';
+      const dims = size === 'lg'
+        ? { box: 'w-11 h-11', svg: 'w-7 h-7' }
+        : { box: 'w-7 h-7',   svg: 'w-5 h-5' };
       return (
-        <div className={`${dims} rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm flex-shrink-0`}>
-          <span className={`font-bold ${meta.text}`}>{meta.label}</span>
+        <div className={`${dims.box} rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm flex-shrink-0`}>
+          <ChannelLogo channel={channel} className={dims.svg} />
         </div>
       );
     };
@@ -690,7 +720,7 @@
         <div className="flex flex-col h-full" style={{ background: '#F0F2FA' }}>
           {/* ─── Header gradient ─── */}
           <div
-            className="relative px-4 pt-6 pb-20 text-white"
+            className="relative px-4 pt-6 pb-28 text-white"
             style={{ background: 'linear-gradient(180deg, #2563EB 0%, #3B82F6 100%)' }}
           >
             <div className="flex items-start justify-between">
@@ -719,7 +749,7 @@
           </div>
 
           {/* ─── Body ─── */}
-          <div className="flex-1 overflow-y-auto -mt-14 pb-6">
+          <div className="flex-1 overflow-y-auto -mt-20 pb-6">
             {/* Summary card (overlapping the header) */}
             <div className="mx-4 bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
               <div className="flex items-start gap-3">
@@ -762,7 +792,7 @@
                 <>
                   {/* Card 1: anagrafica prenotazione */}
                   <div className="bg-white rounded-2xl border border-slate-100 px-4">
-                    <DetailRow label="Etichetta">{fullName}</DetailRow>
+                    <DetailRow label="Ospite">{fullName}</DetailRow>
                     <DetailRow label="Data prenotazione">{fmtDateLong(booking.booking_date)}</DetailRow>
                     <DetailRow label="Arrivo">{fmtDateLong(booking.check_in)}</DetailRow>
                     <DetailRow label="Partenza">{fmtDateLong(booking.check_out)}</DetailRow>
