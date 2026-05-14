@@ -74,15 +74,15 @@
        ─────────────────────────────────────────────────────────── */
 
     const APARTMENTS = [
-      { id: 'a1', name: '21 Manara Trastevere',  short: '21 Manara' },
-      { id: 'a2', name: '35 Gozzadini',          short: '35 Gozzadini' },
-      { id: 'a3', name: '42 Gandino Superior',   short: '42 Gandino Sup.' },
-      { id: 'a4', name: '50 Gandino Deluxe',     short: '50 Gandino Dlx.' },
-      { id: 'a5', name: '63 Brancaleone',        short: '63 Brancaleone' },
-      { id: 'a6', name: 'EV Vatican',            short: 'EV Vatican' },
-      { id: 'a7', name: 'R. dei Pontefici',      short: 'R. Pontefici' },
-      { id: 'a8', name: 'St. Peter Station',     short: 'St. Peter St.' },
-      { id: 'a9', name: 'St. Peter Deluxe',      short: 'St. Peter Dlx.' },
+      { id: 'a1', name: '21 Manara Trastevere',  short: '21 Manara',          code: 'MAN', address: 'Via Manara 21, Roma' },
+      { id: 'a2', name: '35 Gozzadini',          short: '35 Gozzadini',       code: 'GOZ', address: 'Via Gozzadini 35, Roma' },
+      { id: 'a3', name: '42 Gandino Superior',   short: '42 Gandino Sup.',    code: 'GDS', address: 'Via Gandino 42, Roma' },
+      { id: 'a4', name: '50 Gandino Deluxe',     short: '50 Gandino Dlx.',    code: 'GDD', address: 'Via Gandino 50, Roma' },
+      { id: 'a5', name: '63 Brancaleone',        short: '63 Brancaleone',     code: 'BRC', address: 'Via Brancaleone 63, Roma' },
+      { id: 'a6', name: 'EV Vatican',            short: 'EV Vatican',         code: 'EVV', address: 'Via Gregorio VII, 58, Roma' },
+      { id: 'a7', name: 'R. dei Pontefici',      short: 'R. Pontefici',       code: 'RDP', address: 'Via Gregorio VII, 58, Roma' },
+      { id: 'a8', name: 'St. Peter Station',     short: 'St. Peter St.',      code: 'SPS', address: 'Via della Stazione di S. Pietro, Roma' },
+      { id: 'a9', name: 'St. Peter Deluxe',      short: 'St. Peter Dlx.',     code: 'SPD', address: 'Via della Stazione di S. Pietro, Roma' },
     ];
 
     // helper: build YYYY-MM-DD
@@ -93,54 +93,114 @@
     const BOOKINGS = [
       // Past
       { code: 'BKG-2026-001', apartment_id: 'a1', channel: 'booking', status: 'confirmed',
-        check_in: '2026-01-12', check_out: '2026-01-18', guests: 2,
-        first_name: 'Marco', last_name: 'Rossi' },
+        check_in: '2026-01-12', check_out: '2026-01-18', guests: 2, rooms: 1, total_eur: 720.50,
+        first_name: 'Marco', last_name: 'Rossi',
+        phone: '+39 333 1234567', email: 'm.rossi@guest.booking.com',
+        country: 'IT', booking_date: '2025-11-03',
+        check_in_time: '15:00', check_out_time: '11:00',
+        channel_note: 'Arriverà in tarda serata, possibilità di self check-in.' },
       { code: 'AIR-2026-014', apartment_id: 'a3', channel: 'airbnb',  status: 'confirmed',
-        check_in: '2026-02-03', check_out: '2026-02-09', guests: 4,
-        first_name: 'Sophie', last_name: 'Laurent' },
+        check_in: '2026-02-03', check_out: '2026-02-09', guests: 4, rooms: 2, total_eur: 1140.00,
+        first_name: 'Sophie', last_name: 'Laurent',
+        phone: '+33 6 12 34 56 78', email: 'sophie.laurent@guest.airbnb.com',
+        country: 'FR', booking_date: '2025-12-14',
+        check_in_time: '16:00', check_out_time: '10:00',
+        channel_note: 'Family trip with 2 children.' },
       { code: 'BKG-2026-027', apartment_id: 'a7', channel: 'booking', status: 'confirmed',
-        check_in: '2026-03-15', check_out: '2026-03-22', guests: 3,
-        first_name: 'Hans', last_name: 'Müller' },
+        check_in: '2026-03-15', check_out: '2026-03-22', guests: 3, rooms: 1, total_eur: 1485.20,
+        first_name: 'Hans', last_name: 'Müller',
+        phone: '+49 174 1234567', email: 'h.muller@guest.booking.com',
+        country: 'DE', booking_date: '2025-10-22',
+        check_in_time: null, check_out_time: null,
+        channel_note: '** THIS RESERVATION HAS BEEN PRE-PAID **' },
       { code: 'VRB-2026-008', apartment_id: 'a5', channel: 'vrbo',    status: 'confirmed',
-        check_in: '2026-04-08', check_out: '2026-04-14', guests: 5,
-        first_name: 'James', last_name: 'Wilson' },
+        check_in: '2026-04-08', check_out: '2026-04-14', guests: 5, rooms: 2, total_eur: 1650.00,
+        first_name: 'James', last_name: 'Wilson',
+        phone: '+1 415 555 0123', email: 'jwilson@guest.vrbo.com',
+        country: 'US', booking_date: '2026-01-08',
+        check_in_time: '14:00', check_out_time: '11:00',
+        channel_note: '' },
       { code: 'AIR-2026-031', apartment_id: 'a8', channel: 'airbnb',  status: 'confirmed',
-        check_in: '2026-04-22', check_out: '2026-04-28', guests: 2,
-        first_name: 'Yuki',  last_name: 'Tanaka' },
+        check_in: '2026-04-22', check_out: '2026-04-28', guests: 2, rooms: 1, total_eur: 980.00,
+        first_name: 'Yuki',  last_name: 'Tanaka',
+        phone: '+81 90 1234 5678', email: 'y.tanaka@guest.airbnb.com',
+        country: 'JP', booking_date: '2026-02-11',
+        check_in_time: '15:00', check_out_time: '10:00',
+        channel_note: 'First time in Rome, asking for local tips.' },
       { code: 'BKG-2026-049', apartment_id: 'a2', channel: 'booking', status: 'confirmed',
-        check_in: '2026-05-02', check_out: '2026-05-08', guests: 2,
-        first_name: 'Anna',  last_name: 'Kowalski' },
+        check_in: '2026-05-02', check_out: '2026-05-08', guests: 2, rooms: 1, total_eur: 870.40,
+        first_name: 'Anna',  last_name: 'Kowalski',
+        phone: '+48 600 123 456', email: 'a.kowalski@guest.booking.com',
+        country: 'PL', booking_date: '2026-03-01',
+        check_in_time: '14:30', check_out_time: '10:30',
+        channel_note: '' },
 
       // Current / spanning today (May 14, 2026)
       { code: 'BKG-2026-052', apartment_id: 'a3', channel: 'booking', status: 'confirmed',
-        check_in: '2026-05-11', check_out: '2026-05-18', guests: 3,
-        first_name: 'Beatrice', last_name: 'Schulze' },
+        check_in: '2026-05-11', check_out: '2026-05-18', guests: 3, rooms: 1, total_eur: 2310.64,
+        first_name: 'Beatrice', last_name: 'Schulze',
+        phone: '+49 174 3171789', email: 'bschul.133289@guest.booking.com',
+        country: 'DE', booking_date: '2025-12-29',
+        check_in_time: null, check_out_time: null,
+        channel_note: '** THIS RESERVATION HAS BEEN PRE-PAID **\n\nBOOKING NOTE : Payment charge is EUR 32.4996\nAppartamento con 2 Camere da Letto:\nadult: 3' },
       { code: 'AIR-2026-044', apartment_id: 'a6', channel: 'airbnb',  status: 'confirmed',
-        check_in: '2026-05-13', check_out: '2026-05-17', guests: 2,
-        first_name: 'Paul',  last_name: 'Dubois' },
+        check_in: '2026-05-13', check_out: '2026-05-17', guests: 2, rooms: 1, total_eur: 680.00,
+        first_name: 'Paul',  last_name: 'Dubois',
+        phone: '+33 6 98 76 54 32', email: 'p.dubois@guest.airbnb.com',
+        country: 'FR', booking_date: '2026-04-02',
+        check_in_time: '16:00', check_out_time: '11:00',
+        channel_note: 'Business trip.' },
       { code: 'VRB-2026-015', apartment_id: 'a9', channel: 'vrbo',    status: 'confirmed',
-        check_in: '2026-05-10', check_out: '2026-05-16', guests: 4,
-        first_name: 'Carlos', last_name: 'García' },
+        check_in: '2026-05-10', check_out: '2026-05-16', guests: 4, rooms: 2, total_eur: 1480.00,
+        first_name: 'Carlos', last_name: 'García',
+        phone: '+34 600 12 34 56', email: 'c.garcia@guest.vrbo.com',
+        country: 'ES', booking_date: '2026-02-22',
+        check_in_time: '15:00', check_out_time: '10:00',
+        channel_note: '' },
 
       // Future
       { code: 'BKG-2026-058', apartment_id: 'a3', channel: 'booking', status: 'confirmed',
-        check_in: '2026-05-19', check_out: '2026-05-24', guests: 2,
-        first_name: 'Emma',  last_name: 'Johnson' },
+        check_in: '2026-05-19', check_out: '2026-05-24', guests: 2, rooms: 1, total_eur: 1175.00,
+        first_name: 'Emma',  last_name: 'Johnson',
+        phone: '+44 7700 900123', email: 'e.johnson@guest.booking.com',
+        country: 'GB', booking_date: '2026-03-15',
+        check_in_time: '15:00', check_out_time: '11:00',
+        channel_note: '' },
       { code: 'AIR-2026-051', apartment_id: 'a1', channel: 'airbnb',  status: 'confirmed',
-        check_in: '2026-05-20', check_out: '2026-05-25', guests: 3,
-        first_name: 'Lucas', last_name: 'Martin' },
+        check_in: '2026-05-20', check_out: '2026-05-25', guests: 3, rooms: 1, total_eur: 1320.00,
+        first_name: 'Lucas', last_name: 'Martin',
+        phone: '+33 7 11 22 33 44', email: 'l.martin@guest.airbnb.com',
+        country: 'FR', booking_date: '2026-04-18',
+        check_in_time: '16:00', check_out_time: '10:00',
+        channel_note: '' },
       { code: 'BKG-2026-063', apartment_id: 'a4', channel: 'booking', status: 'confirmed',
-        check_in: '2026-05-22', check_out: '2026-05-28', guests: 4,
-        first_name: 'Olivia', last_name: 'Brown' },
+        check_in: '2026-05-22', check_out: '2026-05-28', guests: 4, rooms: 2, total_eur: 1820.00,
+        first_name: 'Olivia', last_name: 'Brown',
+        phone: '+1 212 555 0199', email: 'o.brown@guest.booking.com',
+        country: 'US', booking_date: '2026-03-28',
+        check_in_time: '14:00', check_out_time: '11:00',
+        channel_note: '' },
       { code: 'VRB-2026-019', apartment_id: 'a7', channel: 'vrbo',    status: 'confirmed',
-        check_in: '2026-05-25', check_out: '2026-06-02', guests: 2,
-        first_name: 'David', last_name: 'Smith' },
+        check_in: '2026-05-25', check_out: '2026-06-02', guests: 2, rooms: 1, total_eur: 1640.00,
+        first_name: 'David', last_name: 'Smith',
+        phone: '+1 415 555 0177', email: 'd.smith@guest.vrbo.com',
+        country: 'US', booking_date: '2026-02-09',
+        check_in_time: '15:00', check_out_time: '10:00',
+        channel_note: '' },
       { code: 'AIR-2026-058', apartment_id: 'a5', channel: 'airbnb',  status: 'confirmed',
-        check_in: '2026-06-01', check_out: '2026-06-07', guests: 5,
-        first_name: 'Marie', last_name: 'Lefebvre' },
+        check_in: '2026-06-01', check_out: '2026-06-07', guests: 5, rooms: 2, total_eur: 1980.00,
+        first_name: 'Marie', last_name: 'Lefebvre',
+        phone: '+33 6 22 33 44 55', email: 'm.lefebvre@guest.airbnb.com',
+        country: 'FR', booking_date: '2026-04-25',
+        check_in_time: '16:00', check_out_time: '11:00',
+        channel_note: '' },
       { code: 'BKG-2026-071', apartment_id: 'a8', channel: 'booking', status: 'confirmed',
-        check_in: '2026-05-16', check_out: '2026-05-21', guests: 2,
-        first_name: 'Klaus', last_name: 'Weber' },
+        check_in: '2026-05-16', check_out: '2026-05-21', guests: 2, rooms: 1, total_eur: 1095.00,
+        first_name: 'Klaus', last_name: 'Weber',
+        phone: '+49 152 1122334', email: 'k.weber@guest.booking.com',
+        country: 'DE', booking_date: '2026-04-30',
+        check_in_time: '15:00', check_out_time: '10:00',
+        channel_note: '' },
     ];
 
     /* ─────────────────────────────────────────────────────────────
@@ -177,9 +237,37 @@
        ─────────────────────────────────────────────────────────── */
 
     const CHANNEL_META = {
-      booking: { label: 'B.', bg: 'bg-booking', color: 'text-white', pill: 'bg-booking' },
-      airbnb:  { label: 'A.', bg: 'bg-airbnb',  color: 'text-white', pill: 'bg-airbnb' },
-      vrbo:    { label: 'V.', bg: 'bg-vrbo',    color: 'text-white', pill: 'bg-vrbo' },
+      booking: { label: 'B.', full: 'Booking', bg: 'bg-booking', color: 'text-white', pill: 'bg-booking', text: 'text-booking' },
+      airbnb:  { label: 'A.', full: 'Airbnb',  bg: 'bg-airbnb',  color: 'text-white', pill: 'bg-airbnb',  text: 'text-airbnb' },
+      vrbo:    { label: 'V.', full: 'VRBO',    bg: 'bg-vrbo',    color: 'text-white', pill: 'bg-vrbo',    text: 'text-vrbo' },
+    };
+
+    // ISO country code → flag emoji
+    const flagEmoji = (iso) => {
+      if (!iso || iso.length !== 2) return '';
+      const A = 0x1F1E6;
+      return String.fromCodePoint(...iso.toUpperCase().split('').map(c => A + c.charCodeAt(0) - 65));
+    };
+
+    const COUNTRY_NAMES = {
+      IT: 'Italia', FR: 'Francia', DE: 'Germania', ES: 'Spagna',
+      GB: 'Regno Unito', US: 'Stati Uniti', PL: 'Polonia', JP: 'Giappone',
+    };
+
+    const fmtMoney = (n) =>
+      new Intl.NumberFormat('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+
+    const fmtDateRangeShort = (a, b) => {
+      const A = parseISO(a), B = parseISO(b);
+      const sameYear = A.getFullYear() === B.getFullYear();
+      const aStr = `${A.getDate()} ${MONTHS_SHORT[A.getMonth()]}${sameYear ? '' : ' ' + A.getFullYear()}`;
+      const bStr = `${B.getDate()} ${MONTHS_SHORT[B.getMonth()]} ${B.getFullYear()}`;
+      return `${aStr} - ${bStr}`;
+    };
+
+    const fmtDateLong = (iso) => {
+      const d = parseISO(iso);
+      return `${d.getDate()} ${MONTHS_IT[d.getMonth()].charAt(0).toUpperCase() + MONTHS_IT[d.getMonth()].slice(1)} ${d.getFullYear()}`;
     };
 
     /* ─────────────────────────────────────────────────────────────
@@ -530,6 +618,232 @@
     };
 
     /* ─────────────────────────────────────────────────────────────
+       BOOKING DETAIL PAGE
+       ─────────────────────────────────────────────────────────── */
+
+    const STATUS_META = {
+      confirmed: { label: 'Confermata', bg: 'bg-ok',     ring: 'ring-ok' },
+      pending:   { label: 'In attesa',  bg: 'bg-warn',   ring: 'ring-warn' },
+      cancelled: { label: 'Cancellata', bg: 'bg-danger', ring: 'ring-danger' },
+    };
+
+    // Channel logo: render a circular badge with the channel initial in brand color.
+    const ChannelBadge = ({ channel, size = 'lg' }) => {
+      const meta = CHANNEL_META[channel];
+      const dims = size === 'lg' ? 'w-11 h-11 text-base' : 'w-7 h-7 text-xs';
+      return (
+        <div className={`${dims} rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm flex-shrink-0`}>
+          <span className={`font-bold ${meta.text}`}>{meta.label}</span>
+        </div>
+      );
+    };
+
+    // Reusable row: LABEL (uppercase) ........... value
+    const DetailRow = ({ label, children, last }) => (
+      <div className={`flex items-center justify-between py-3 ${last ? '' : 'border-b border-slate-100'}`}>
+        <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">{label}</span>
+        <span className="text-[15px] text-slate-900 text-right ml-3 min-w-0 truncate">
+          {children ?? <span className="text-slate-300">-</span>}
+        </span>
+      </div>
+    );
+
+    const Tab = ({ active, children, onClick }) => (
+      <button
+        onClick={onClick}
+        className={`
+          px-5 py-2 rounded-full text-sm font-semibold transition-all flex-shrink-0
+          ${active
+            ? 'bg-primary-600 text-white shadow-md'
+            : 'bg-white text-slate-700 border border-slate-200 hover:border-slate-300'}
+        `}
+      >
+        {children}
+      </button>
+    );
+
+    const BookingDetail = ({ code, onBack }) => {
+      const booking = useMemo(() => BOOKINGS.find(b => b.code === code), [code]);
+      const [tab, setTab] = useState('dettagli');
+      const [internalNotes, setInternalNotes] = useState('');
+
+      if (!booking) {
+        return (
+          <div className="flex flex-col h-full bg-white items-center justify-center px-6 text-center">
+            <Icon name="alert-circle" className="w-12 h-12 text-slate-300 mb-3" />
+            <p className="text-slate-600">Prenotazione non trovata.</p>
+            <button onClick={onBack} className="mt-4 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium">
+              Torna al planner
+            </button>
+          </div>
+        );
+      }
+
+      const apt = APARTMENTS.find(a => a.id === booking.apartment_id);
+      const meta = CHANNEL_META[booking.channel];
+      const statusMeta = STATUS_META[booking.status] || STATUS_META.confirmed;
+      const nights = diffDays(parseISO(booking.check_in), parseISO(booking.check_out));
+      const fullName = `${booking.last_name} ${booking.first_name}`;
+      const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(apt.address)}`;
+
+      return (
+        <div className="flex flex-col h-full" style={{ background: '#F0F2FA' }}>
+          {/* ─── Header gradient ─── */}
+          <div
+            className="relative px-4 pt-6 pb-20 text-white"
+            style={{ background: 'linear-gradient(180deg, #2563EB 0%, #3B82F6 100%)' }}
+          >
+            <div className="flex items-start justify-between">
+              <button
+                onClick={onBack}
+                className="w-11 h-11 rounded-full bg-white/25 hover:bg-white/35 backdrop-blur-sm flex items-center justify-center transition-colors"
+                aria-label="Indietro"
+              >
+                <Icon name="arrow-left" className="w-5 h-5 text-white" strokeWidth={2.5} />
+              </button>
+
+              <div className="flex-1 text-center px-3">
+                <h1 className="text-[22px] font-bold leading-tight">{fullName}</h1>
+                <p className="text-sm text-white/90 mt-1">
+                  {fmtDateRangeShort(booking.check_in, booking.check_out)}
+                </p>
+              </div>
+
+              <button
+                className="w-11 h-11 rounded-full bg-white/25 hover:bg-white/35 backdrop-blur-sm flex items-center justify-center transition-colors"
+                aria-label="Altre azioni"
+              >
+                <Icon name="more-vertical" className="w-5 h-5 text-white" strokeWidth={2.5} />
+              </button>
+            </div>
+          </div>
+
+          {/* ─── Body ─── */}
+          <div className="flex-1 overflow-y-auto -mt-14 pb-6">
+            {/* Summary card (overlapping the header) */}
+            <div className="mx-4 bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
+              <div className="flex items-start gap-3">
+                <ChannelBadge channel={booking.channel} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[15px] font-semibold text-slate-900">Prenotazione {booking.code}</div>
+                  <div className="text-sm text-slate-500 mt-0.5 truncate">{apt.name}</div>
+                </div>
+                <button className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center flex-shrink-0">
+                  <Icon name="message-circle" className="w-5 h-5 text-slate-600" />
+                </button>
+              </div>
+              <div className="flex items-center justify-between mt-3">
+                <div className="flex items-center gap-4 text-slate-500 text-sm">
+                  <span className="flex items-center gap-1">
+                    <Icon name="bed-double" className="w-4 h-4" /> {booking.rooms}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Icon name="users" className="w-4 h-4" /> {booking.guests}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Icon name="moon" className="w-4 h-4" /> {nights}
+                  </span>
+                </div>
+                <div className="text-primary-600 font-semibold text-[15px]">
+                  Tot {fmtMoney(booking.total_eur)} €
+                </div>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="px-4 mt-5 flex gap-2 overflow-x-auto no-scrollbar">
+              <Tab active={tab === 'dettagli'} onClick={() => setTab('dettagli')}>Dettagli</Tab>
+              <Tab active={tab === 'ospiti'}   onClick={() => setTab('ospiti')}>Ospiti</Tab>
+            </div>
+
+            {/* Tab content */}
+            <div className="px-4 mt-4 space-y-4">
+              {tab === 'dettagli' && (
+                <>
+                  {/* Card 1: anagrafica prenotazione */}
+                  <div className="bg-white rounded-2xl border border-slate-100 px-4">
+                    <DetailRow label="Etichetta">{fullName}</DetailRow>
+                    <DetailRow label="Data prenotazione">{fmtDateLong(booking.booking_date)}</DetailRow>
+                    <DetailRow label="Arrivo">{fmtDateLong(booking.check_in)}</DetailRow>
+                    <DetailRow label="Partenza">{fmtDateLong(booking.check_out)}</DetailRow>
+                    <DetailRow label="Ora di arrivo">{booking.check_in_time}</DetailRow>
+                    <DetailRow label="Ora di partenza">{booking.check_out_time}</DetailRow>
+                    <DetailRow label="Canale">
+                      <span className="inline-flex items-center gap-2">
+                        <span>{meta.full}</span>
+                        <ChannelBadge channel={booking.channel} size="sm" />
+                      </span>
+                    </DetailRow>
+                    <DetailRow label="Nazione">
+                      <span className="inline-flex items-center gap-2">
+                        <span>{booking.country}</span>
+                        <span className="text-lg leading-none">{flagEmoji(booking.country)}</span>
+                      </span>
+                    </DetailRow>
+                    <DetailRow label="Notti">{nights}</DetailRow>
+                    <DetailRow label="Ospiti" last>{booking.guests}</DetailRow>
+                  </div>
+
+                  {/* Card 2: dati ospite */}
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 mb-2 px-1">Dati ospite</h3>
+                    <div className="bg-white rounded-2xl border border-slate-100 p-4">
+                      <div className="flex items-center justify-between py-2 border-b border-slate-100">
+                        <span className="text-[15px] text-slate-600">Telefono</span>
+                        <a href={`tel:${booking.phone}`} className="text-[15px] text-slate-900 font-medium">
+                          {booking.phone}
+                        </a>
+                      </div>
+                      <div className="flex items-center justify-between py-2">
+                        <span className="text-[15px] text-slate-600">Email</span>
+                        <a
+                          href={`mailto:${booking.email}`}
+                          className="text-[15px] text-slate-900 font-medium truncate ml-3 max-w-[60%] text-right"
+                        >
+                          {booking.email}
+                        </a>
+                      </div>
+                      <button className="mt-3 w-full py-3 rounded-full bg-primary-50 text-primary-600 font-semibold text-[15px] hover:bg-primary-100 transition-colors">
+                        Contatta l'ospite
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Card 5: note interne (editable) */}
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 mb-2 px-1">Note interne</h3>
+                    <div className="bg-white rounded-2xl border border-slate-100 p-3">
+                      <textarea
+                        value={internalNotes}
+                        onChange={(e) => setInternalNotes(e.target.value)}
+                        placeholder="Scrivi note..."
+                        rows={4}
+                        className="w-full text-[15px] text-slate-900 placeholder-slate-400 resize-none focus:outline-none p-1"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {tab === 'ospiti' && (
+                <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-primary-50 flex items-center justify-center mx-auto mb-3">
+                    <Icon name="users" className="w-7 h-7 text-primary-600" />
+                  </div>
+                  <h3 className="text-base font-semibold text-slate-900">Lista ospiti</h3>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Definiremo questa sezione in uno step successivo
+                    <br />(documenti, Alloggiati Web, dati anagrafici).
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    /* ─────────────────────────────────────────────────────────────
        PLACEHOLDER PAGES (we'll build these in next steps)
        ─────────────────────────────────────────────────────────── */
     const Placeholder = ({ title, subtitle }) => (
@@ -590,6 +904,7 @@
       const [route, setRoute] = useState({ name: 'planner' }); // start on planner per current focus
 
       const openBooking = (code) => setRoute({ name: 'booking', code });
+      const goBack = () => setRoute({ name: 'planner' });
 
       const renderPage = () => {
         switch (route.name) {
@@ -602,7 +917,7 @@
           case 'more':
             return <Placeholder title="Altro" subtitle="Calendari, Prenotazioni e impostazioni." />;
           case 'booking':
-            return <Placeholder title={`Prenotazione ${route.code}`} subtitle="La pagina dettaglio prenotazione arriverà nello step 2." />;
+            return <BookingDetail code={route.code} onBack={goBack} />;
           case 'new':
             return <Placeholder title="Nuova prenotazione" subtitle="Form di creazione manuale — da definire." />;
           default:
@@ -613,12 +928,17 @@
       // Map route to active nav id
       const activeNav = ['home','planner','channels','more','new'].includes(route.name) ? route.name : 'planner';
 
+      // Hide bottom nav on booking detail (full-screen detail view)
+      const hideNav = route.name === 'booking';
+
       return (
         <div className="flex flex-col h-full max-w-[480px] mx-auto bg-white shadow-2xl">
           <div className="flex-1 overflow-hidden">
             {renderPage()}
           </div>
-          <BottomNav active={activeNav} onChange={(id) => setRoute({ name: id })} />
+          {!hideNav && (
+            <BottomNav active={activeNav} onChange={(id) => setRoute({ name: id })} />
+          )}
         </div>
       );
     };
