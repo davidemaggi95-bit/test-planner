@@ -570,7 +570,11 @@
     const WINDOW_DAYS = 30;  // load ±30 days from selected date
 
     const Planner = ({ onOpenBooking }) => {
-      const [selectedDate, setSelectedDate] = useState(new Date(2026, 4, 14)); // May 14, 2026
+      const { reservations, properties, propsMap, loading: dataLoading, error: dataError } = useData();
+      // Properties to display (DB list, fall back to mock APARTMENTS if not yet loaded)
+      const apts = properties.length > 0 ? properties : APARTMENTS;
+
+      const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
       const [pickerOpen, setPickerOpen]     = useState(false);
       const today = startOfDay(new Date());
 
@@ -596,12 +600,13 @@
 
       // Filter bookings that intersect the window
       const visibleBookings = useMemo(() => {
-        return BOOKINGS.filter(b => {
+        return reservations.filter(b => {
+          if (b.status === 'cancelled') return false;
           const ci = parseISO(b.check_in);
           const co = parseISO(b.check_out);
           return co >= rangeStart && ci <= rangeEnd;
         });
-      }, [rangeStart.getTime(), rangeEnd.getTime()]);
+      }, [reservations, rangeStart.getTime(), rangeEnd.getTime()]);
 
       return (
         <div className="flex flex-col h-full bg-white">
@@ -700,7 +705,7 @@
                 </div>
 
                 {/* Apartment rows */}
-                {APARTMENTS.map((apt) => (
+                {apts.map((apt) => (
                   <div
                     key={apt.id}
                     className="flex border-b border-slate-100 relative"
@@ -748,7 +753,7 @@
                         return (
                           <button
                             key={b.code}
-                            onClick={() => onOpenBooking(b.code)}
+                            onClick={() => onOpenBooking(b, apt)}
                             className="absolute flex items-center gap-1.5 rounded-full pl-1 pr-2 text-white text-xs font-medium shadow-sm hover:shadow-md transition-shadow"
                             style={{
                               left: leftPx,
@@ -1080,20 +1085,21 @@
       a9: 'from-indigo-400 to-blue-600',
     };
 
-    // Get bookings that occupy a given apartment on a given date
-    const bookingOnDay = (aptId, date) => {
-      const day = startOfDay(date);
-      return BOOKINGS.find(b => {
-        if (b.apartment_id !== aptId) return false;
-        const ci = parseISO(b.check_in);
-        const co = parseISO(b.check_out);
-        return day >= ci && day < co; // checkout day itself is free
-      });
-    };
-
     const CalendariList = ({ onOpenApartment }) => {
+      const { reservations, properties } = useData();
+      const apts = properties.length > 0 ? properties : APARTMENTS;
       // Build a 35-day occupancy pattern (5 weeks) for the dot-strip preview, Airbnb style
       const today = startOfDay(new Date());
+      const bookingOnDay = (aptId, date) => {
+        const day = startOfDay(date);
+        return reservations.find(b => {
+          if (b.status === 'cancelled') return false;
+          if (b.apartment_id !== aptId) return false;
+          const ci = parseISO(b.check_in);
+          const co = parseISO(b.check_out);
+          return day >= ci && day < co; // checkout day itself is free
+        });
+      };
       const buildStrip = (aptId) => {
         return Array.from({ length: 35 }, (_, i) => {
           const d = addDays(today, i);
@@ -1114,7 +1120,7 @@
 
           {/* Apartment list */}
           <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-3">
-            {APARTMENTS.map(apt => {
+            {apts.map(apt => {
               const strip = buildStrip(apt.id);
               const gradient = APT_GRADIENTS[apt.id] || 'from-slate-400 to-slate-500';
               return (
@@ -1173,13 +1179,14 @@
 
     // Helpers for Airbnb-style grid: figure out, for a given month, the start/end positions
     // of each booking pill (rows of 7 cells)
-    const buildMonthBookingPills = (year, month, aptId) => {
+    const buildMonthBookingPills = (year, month, aptId, bookings) => {
       // Find all bookings that touch this month
       const monthStart = new Date(year, month, 1);
       const monthEnd   = new Date(year, month + 1, 0); // last day
       const offset = (monthStart.getDay() + 6) % 7;     // Mon-start
 
-      const monthBookings = BOOKINGS.filter(b => {
+      const monthBookings = bookings.filter(b => {
+        if (b.status === 'cancelled') return false;
         if (b.apartment_id !== aptId) return false;
         const ci = parseISO(b.check_in);
         const co = parseISO(b.check_out);
@@ -1228,7 +1235,7 @@
     };
 
     // A single month grid — Airbnb style
-    const MonthGrid = ({ year, month, aptId, onOpenBooking }) => {
+    const MonthGrid = ({ year, month, aptId, bookings, onOpenBooking }) => {
       const today = startOfDay(new Date());
       const firstOfMonth = new Date(year, month, 1);
       const offset = (firstOfMonth.getDay() + 6) % 7;
@@ -1242,7 +1249,7 @@
       while (cells.length % 7 !== 0) cells.push(null);
       const totalRows = cells.length / 7;
 
-      const pills = buildMonthBookingPills(year, month, aptId);
+      const pills = buildMonthBookingPills(year, month, aptId, bookings);
 
       const CELL_HEIGHT = 64;  // px
 
@@ -1307,7 +1314,7 @@
               return (
                 <button
                   key={idx}
-                  onClick={() => onOpenBooking && onOpenBooking(p.booking.code)}
+                  onClick={() => onOpenBooking && onOpenBooking(p.booking)}
                   className="absolute text-white text-xs font-medium flex items-center gap-1.5 z-10 shadow-sm hover:shadow-md transition-shadow"
                   style={{
                     left,
@@ -1341,7 +1348,8 @@
     };
 
     const CalendariDetail = ({ apartmentId, onBack, onOpenBooking }) => {
-      const apt = APARTMENTS.find(a => a.id === apartmentId);
+      const { reservations, properties, propsMap } = useData();
+      const apt = propsMap.get(apartmentId) || APARTMENTS.find(a => a.id === apartmentId);
       const today = new Date();
       const startMonth = today.getMonth();
       const startYear  = today.getFullYear();
@@ -1399,7 +1407,12 @@
             className="flex-1 overflow-y-auto"
           >
             {months.map((m, i) => (
-              <MonthGrid key={`${m.year}-${m.month}`} year={m.year} month={m.month} aptId={apt.id} onOpenBooking={onOpenBooking} />
+              <MonthGrid
+                key={`${m.year}-${m.month}`}
+                year={m.year} month={m.month} aptId={apt.id}
+                bookings={reservations}
+                onOpenBooking={(b) => onOpenBooking(b, apt)}
+              />
             ))}
             <div className="px-4 py-6 text-center text-xs text-slate-400">
               12 mesi visualizzati
@@ -1426,49 +1439,10 @@
 
     const Home = ({ onOpenBooking }) => {
       const { signOut, profile, isAdmin, isCleaning } = useAuth();
+      const { reservations, propsMap, loading: loadingData, error: fetchError } = useData();
       const today = startOfDay(new Date());
       const todayISO = fmtISO(today);
       const [section, setSection] = useState('arrivals'); // 'arrivals' | 'departures' | 'inhouse'
-
-      // Live data from Supabase
-      const [reservations, setReservations] = useState([]);
-      const [properties, setProperties]     = useState([]);
-      const [loadingData, setLoadingData]   = useState(true);
-      const [fetchError, setFetchError]     = useState(null);
-
-      // Load today's relevant reservations + properties on mount
-      useEffect(() => {
-        let cancelled = false;
-        (async () => {
-          setLoadingData(true);
-          setFetchError(null);
-          try {
-            // Window = today only — covers arrivals, departures, in-house
-            const [resv, props] = await Promise.all([
-              fetchReservations({ fromDate: todayISO, toDate: todayISO, status: 'confermata' }),
-              fetchProperties(),
-            ]);
-            if (cancelled) return;
-            setReservations(resv);
-            setProperties(props);
-          } catch (err) {
-            if (!cancelled) {
-              console.error('Home fetch failed:', err);
-              setFetchError(err.message || 'Errore di caricamento');
-            }
-          } finally {
-            if (!cancelled) setLoadingData(false);
-          }
-        })();
-        return () => { cancelled = true; };
-      }, [todayISO]);
-
-      // Build a map property_id → property (for quick lookup in cards)
-      const propsMap = useMemo(() => {
-        const m = new Map();
-        properties.forEach(p => m.set(p.id, p));
-        return m;
-      }, [properties]);
 
       // Categorize bookings relative to today
       const { arrivals, departures, inhouse } = useMemo(() => {
@@ -1721,6 +1695,8 @@
     const PAGE_SIZE = 30;
 
     const Prenotazioni = ({ onOpenBooking }) => {
+      const { reservations, properties, propsMap } = useData();
+      const apts = properties.length > 0 ? properties : APARTMENTS;
       const [query, setQuery] = useState('');
       const [sortBy, setSortBy] = useState('arrival'); // 'arrival' | 'booking'
       const [filtersOpen, setFiltersOpen] = useState(false);
@@ -1733,7 +1709,7 @@
       // Apply filters + search + sort
       const filtered = useMemo(() => {
         const q = query.trim().toLowerCase();
-        let arr = BOOKINGS.filter(b => {
+        let arr = reservations.filter(b => {
           if (channelFilter !== 'all' && b.channel !== channelFilter) return false;
           if (aptFilter !== 'all' && b.apartment_id !== aptFilter) return false;
           if (statusFilter !== 'all' && b.status !== statusFilter) return false;
@@ -1744,9 +1720,9 @@
           return true;
         });
         const key = sortBy === 'arrival' ? 'check_in' : 'booking_date';
-        arr.sort((a, b) => a[key].localeCompare(b[key]));
+        arr.sort((a, b) => (a[key] || '').localeCompare(b[key] || ''));
         return arr;
-      }, [query, sortBy, channelFilter, aptFilter, statusFilter]);
+      }, [reservations, query, sortBy, channelFilter, aptFilter, statusFilter]);
 
       // Reset visibleCount when filters change
       useEffect(() => { setVisibleCount(PAGE_SIZE); }, [query, sortBy, channelFilter, aptFilter, statusFilter, groupByApt]);
@@ -1777,7 +1753,7 @@
             map.get(b.apartment_id).push(b);
           });
           return Array.from(map.entries()).map(([aptId, items]) => {
-            const apt = APARTMENTS.find(a => a.id === aptId);
+            const apt = propsMap.get(aptId) || APARTMENTS.find(a => a.id === aptId);
             return { label: apt ? apt.name : aptId, items };
           });
         }
@@ -1877,7 +1853,7 @@
                 onChange={setAptFilter}
                 options={[
                   { v: 'all', label: 'Tutti' },
-                  ...APARTMENTS.map(a => ({ v: a.id, label: a.short })),
+                  ...apts.map(a => ({ v: a.id, label: a.short || a.name })),
                 ]}
               />
               {/* Stato */}
@@ -1939,7 +1915,12 @@
                 </div>
                 <div className="px-4 pb-2 space-y-2">
                   {g.items.map(b => (
-                    <BookingListCard key={b.code} booking={b} onClick={() => onOpenBooking(b.code)} />
+                    <BookingListCard
+                      key={b.code}
+                      booking={b}
+                      property={propsMap.get(b.apartment_id)}
+                      onClick={() => onOpenBooking(b, propsMap.get(b.apartment_id))}
+                    />
                   ))}
                 </div>
               </div>
@@ -1993,8 +1974,8 @@
     );
 
     // Single booking card (Booking Pulse style)
-    const BookingListCard = React.memo(({ booking, onClick }) => {
-      const apt = APARTMENTS.find(a => a.id === booking.apartment_id);
+    const BookingListCard = React.memo(({ booking, property, onClick }) => {
+      const apt = property || APARTMENTS.find(a => a.id === booking.apartment_id);
       const nights = diffDays(parseISO(booking.check_in), parseISO(booking.check_out));
       const isGenius = booking.channel === 'booking'; // mock: assume some Booking guests are Genius
       const today = startOfDay(new Date());
@@ -2159,6 +2140,74 @@
 
       const value = { session, profile, role, isAdmin, isCleaning, loading, signIn, signOut };
       return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+    };
+
+    /* ─────────────────────────────────────────────────────────────
+       DATA CONTEXT — loads all reservations + properties once after auth.
+       Pages consume via useData() instead of querying Supabase individually.
+       ─────────────────────────────────────────────────────────── */
+    const DataContext = createContext(null);
+    const useData = () => useContext(DataContext);
+
+    const DataProvider = ({ children }) => {
+      const { session } = useAuth();
+      const [reservations, setReservations] = useState([]);
+      const [properties,   setProperties]   = useState([]);
+      const [loading,      setLoading]      = useState(false);
+      const [error,        setError]        = useState(null);
+      const [refreshTick,  setRefreshTick]  = useState(0);
+
+      // Reload everything (also exposed so pages can trigger manual refresh)
+      const refresh = useCallback(() => setRefreshTick(t => t + 1), []);
+
+      useEffect(() => {
+        if (!session) {
+          setReservations([]); setProperties([]); setLoading(false);
+          return;
+        }
+        let cancelled = false;
+        (async () => {
+          setLoading(true);
+          setError(null);
+          try {
+            // No date filter → load all reservations
+            const [resv, props] = await Promise.all([
+              fetchReservations({}),
+              fetchProperties(),
+            ]);
+            if (cancelled) return;
+            setReservations(resv);
+            setProperties(props);
+          } catch (err) {
+            if (!cancelled) {
+              console.error('Data load failed:', err);
+              setError(err.message || 'Errore caricamento dati');
+            }
+          } finally {
+            if (!cancelled) setLoading(false);
+          }
+        })();
+        return () => { cancelled = true; };
+      }, [session, refreshTick]);
+
+      // Lookup helpers (memoized)
+      const propsMap = useMemo(() => {
+        const m = new Map();
+        properties.forEach(p => m.set(p.id, p));
+        return m;
+      }, [properties]);
+
+      const reservationsByCode = useMemo(() => {
+        const m = new Map();
+        reservations.forEach(b => m.set(b.code, b));
+        return m;
+      }, [reservations]);
+
+      const value = {
+        reservations, properties, propsMap, reservationsByCode,
+        loading, error, refresh,
+      };
+      return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
     };
 
     /* ─────────────────────────────────────────────────────────────
@@ -2330,7 +2379,7 @@
           case 'home':
             return <Home onOpenBooking={(b, p) => openBooking({ code: b.code, booking: b, property: p }, { name: 'home' })} />;
           case 'planner':
-            return <Planner onOpenBooking={(code) => openBooking(code, { name: 'planner' })} />;
+            return <Planner onOpenBooking={(b, p) => openBooking({ code: b.code, booking: b, property: p }, { name: 'planner' })} />;
           case 'calendari':
             return <CalendariList
                      onOpenApartment={(id) => setRoute({ name: 'calendari-detail', apartmentId: id })}
@@ -2339,11 +2388,11 @@
             return <CalendariDetail
                      apartmentId={route.apartmentId}
                      onBack={() => setRoute({ name: 'calendari' })}
-                     onOpenBooking={(code) => openBooking(code, { name: 'calendari-detail', apartmentId: route.apartmentId })}
+                     onOpenBooking={(b, p) => openBooking({ code: b.code, booking: b, property: p }, { name: 'calendari-detail', apartmentId: route.apartmentId })}
                    />;
           case 'prenotazioni':
             return <Prenotazioni
-                     onOpenBooking={(code) => openBooking(code, { name: 'prenotazioni' })}
+                     onOpenBooking={(b, p) => openBooking({ code: b.code, booking: b, property: p }, { name: 'prenotazioni' })}
                    />;
           case 'booking':
             return <BookingDetail
@@ -2395,7 +2444,9 @@
 
     ReactDOM.createRoot(document.getElementById('root')).render(
       <AuthProvider>
-        <App />
+        <DataProvider>
+          <App />
+        </DataProvider>
       </AuthProvider>
     );
   </script>
