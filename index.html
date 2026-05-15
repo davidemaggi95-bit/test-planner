@@ -2107,6 +2107,12 @@
       useEffect(() => {
         let active = true;
         dbg('AuthProvider: getSession() starting');
+        // Safety timeout: if nothing happens in 8s, unblock the UI
+        const timeoutId = setTimeout(() => {
+          if (!active) return;
+          dbg('⚠️ AuthProvider: TIMEOUT after 8s, forcing loading=false');
+          setLoading(false);
+        }, 8000);
         // Get current session on mount
         supabaseClient.auth.getSession().then(async ({ data: { session }, error }) => {
           if (!active) return;
@@ -2115,14 +2121,20 @@
           setSession(session);
           if (session?.user) {
             dbg('AuthProvider: loading profile for ' + session.user.email);
-            await loadProfile(session.user.id);
-            dbg('AuthProvider: profile loaded');
+            try {
+              await loadProfile(session.user.id);
+              dbg('AuthProvider: profile loaded');
+            } catch (e) {
+              dbg('AuthProvider: loadProfile CATCH: ' + (e.message || e));
+            }
           }
+          clearTimeout(timeoutId);
           setLoading(false);
           dbg('AuthProvider: loading=false');
         }).catch(e => {
           if (!active) return;
           dbg('AuthProvider: getSession CATCH: ' + (e.message || e));
+          clearTimeout(timeoutId);
           setLoading(false);
         });
         // Subscribe to future changes
@@ -2130,11 +2142,19 @@
           if (!active) return;
           dbg('Auth event: ' + _event + ' session=' + (newSession ? newSession.user.email : 'null'));
           setSession(newSession);
-          if (newSession?.user) await loadProfile(newSession.user.id);
-          else setProfile(null);
+          if (newSession?.user) {
+            try {
+              await loadProfile(newSession.user.id);
+            } catch (e) {
+              dbg('onAuthStateChange loadProfile CATCH: ' + (e.message || e));
+            }
+          } else {
+            setProfile(null);
+          }
         });
         return () => {
           active = false;
+          clearTimeout(timeoutId);
           subscription.unsubscribe();
         };
       }, [loadProfile]);
@@ -2497,13 +2517,57 @@
       return <AppShell />;
     };
 
+    /* ─────────────────────────────────────────────────────────────
+       ERROR BOUNDARY — catches render-time errors and shows them
+       ─────────────────────────────────────────────────────────── */
+    class ErrorBoundary extends React.Component {
+      constructor(props) {
+        super(props);
+        this.state = { error: null };
+      }
+      static getDerivedStateFromError(error) {
+        return { error };
+      }
+      componentDidCatch(error, info) {
+        dbg('❌ REACT ERR: ' + (error.message || error));
+        if (info?.componentStack) {
+          const lines = info.componentStack.split('\n').slice(0, 3).join(' / ');
+          dbg('  stack: ' + lines);
+        }
+      }
+      render() {
+        if (this.state.error) {
+          return (
+            <div className="flex flex-col h-full max-w-[480px] mx-auto bg-white items-center justify-center px-4 py-8">
+              <div className="w-16 h-16 rounded-2xl bg-danger/10 flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-danger" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              </div>
+              <h2 className="text-xl font-bold text-slate-900">Errore di rendering</h2>
+              <p className="text-sm text-slate-600 mt-2 text-center max-w-xs">
+                {this.state.error.message || String(this.state.error)}
+              </p>
+              <div className="mt-6 w-full max-h-64 overflow-y-auto bg-slate-900 text-emerald-300 font-mono text-[10px] leading-snug rounded-lg p-3">
+                {debugLog.map((l, i) => <div key={i}>{l}</div>)}
+              </div>
+              <button onClick={() => location.reload()} className="mt-4 px-6 py-3 rounded-full bg-primary-600 text-white font-semibold text-sm">
+                Ricarica
+              </button>
+            </div>
+          );
+        }
+        return this.props.children;
+      }
+    }
+
     dbg('Mounting React app');
     ReactDOM.createRoot(document.getElementById('root')).render(
-      <AuthProvider>
-        <DataProvider>
-          <App />
-        </DataProvider>
-      </AuthProvider>
+      <ErrorBoundary>
+        <AuthProvider>
+          <DataProvider>
+            <App />
+          </DataProvider>
+        </AuthProvider>
+      </ErrorBoundary>
     );
   </script>
 </body>
