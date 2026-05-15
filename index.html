@@ -593,9 +593,14 @@
       const timelineRef = useRef(null);
       useEffect(() => {
         if (!timelineRef.current) return;
-        const idx = diffDays(rangeStart, selectedDate);
-        const x = idx * CELL_W - (timelineRef.current.clientWidth / 2) + (CELL_W / 2);
-        timelineRef.current.scrollTo({ left: Math.max(0, x), behavior: 'smooth' });
+        // Small delay to let layout settle (especially on first mount)
+        const t = setTimeout(() => {
+          if (!timelineRef.current) return;
+          const idx = diffDays(rangeStart, selectedDate);
+          const x = idx * CELL_W - (timelineRef.current.clientWidth / 2) + (CELL_W / 2);
+          timelineRef.current.scrollTo({ left: Math.max(0, x), behavior: 'auto' });
+        }, 50);
+        return () => clearTimeout(t);
       }, [selectedDate.getTime()]);
 
       // Filter bookings that intersect the window
@@ -1704,7 +1709,10 @@
       const [aptFilter, setAptFilter] = useState('all');
       const [statusFilter, setStatusFilter] = useState('all');
       const [groupByApt, setGroupByApt] = useState(false);
+      const [showPast, setShowPast] = useState(false);  // hide past bookings by default
       const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+      const todayISO = fmtISO(startOfDay(new Date()));
 
       // Apply filters + search + sort
       const filtered = useMemo(() => {
@@ -1713,6 +1721,8 @@
           if (channelFilter !== 'all' && b.channel !== channelFilter) return false;
           if (aptFilter !== 'all' && b.apartment_id !== aptFilter) return false;
           if (statusFilter !== 'all' && b.status !== statusFilter) return false;
+          // Hide past bookings (check_out < today) by default
+          if (!showPast && b.check_out && b.check_out < todayISO) return false;
           if (q) {
             const haystack = `${b.first_name} ${b.last_name} ${b.code}`.toLowerCase();
             if (!haystack.includes(q)) return false;
@@ -1722,10 +1732,10 @@
         const key = sortBy === 'arrival' ? 'check_in' : 'booking_date';
         arr.sort((a, b) => (a[key] || '').localeCompare(b[key] || ''));
         return arr;
-      }, [reservations, query, sortBy, channelFilter, aptFilter, statusFilter]);
+      }, [reservations, query, sortBy, channelFilter, aptFilter, statusFilter, showPast, todayISO]);
 
       // Reset visibleCount when filters change
-      useEffect(() => { setVisibleCount(PAGE_SIZE); }, [query, sortBy, channelFilter, aptFilter, statusFilter, groupByApt]);
+      useEffect(() => { setVisibleCount(PAGE_SIZE); }, [query, sortBy, channelFilter, aptFilter, statusFilter, groupByApt, showPast]);
 
       const paginated = filtered.slice(0, visibleCount);
       const hasMore = filtered.length > paginated.length;
@@ -1879,6 +1889,21 @@
                   <span
                     className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
                       groupByApt ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+              {/* Show past toggle */}
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] font-semibold text-slate-700">Mostra prenotazioni passate</span>
+                <button
+                  onClick={() => setShowPast(v => !v)}
+                  className={`relative w-11 h-6 rounded-full transition ${showPast ? 'bg-primary-600' : 'bg-slate-300'}`}
+                  aria-label="Toggle mostra passate"
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                      showPast ? 'translate-x-5' : 'translate-x-0'
                     }`}
                   />
                 </button>
