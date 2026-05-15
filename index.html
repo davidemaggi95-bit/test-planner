@@ -2084,15 +2084,34 @@
       const [profile, setProfile] = useState(null);  // { user_id, email, full_name, role }
       const [loading, setLoading] = useState(true);
 
-      // Load profile (role) for a given user
+      // Load profile (role) for a given user — with retry on transient failures
       const loadProfile = useCallback(async (userId) => {
         if (!userId) { setProfile(null); return; }
+        const tryQuery = async () => {
+          return await supabaseClient
+            .from('app_users')
+            .select('user_id, email, full_name, role')
+            .eq('user_id', userId)
+            .single();
+        };
         dbg('loadProfile: querying app_users for ' + userId);
-        const { data, error } = await supabaseClient
-          .from('app_users')
-          .select('user_id, email, full_name, role')
-          .eq('user_id', userId)
-          .single();
+        let result;
+        try {
+          result = await Promise.race([
+            tryQuery(),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('query timeout 6s')), 6000))
+          ]);
+        } catch (e) {
+          dbg('loadProfile: 1st attempt failed (' + (e.message || e) + '), retrying...');
+          try {
+            result = await tryQuery();
+          } catch (e2) {
+            dbg('loadProfile: 2nd attempt also failed: ' + (e2.message || e2));
+            setProfile(null);
+            return;
+          }
+        }
+        const { data, error } = result;
         if (error) {
           dbg('loadProfile ERR: ' + error.message);
           console.error('Profile load failed:', error.message);
@@ -2107,12 +2126,12 @@
       useEffect(() => {
         let active = true;
         dbg('AuthProvider: getSession() starting');
-        // Safety timeout: if nothing happens in 8s, unblock the UI
+        // Safety timeout: if nothing happens in 20s, unblock the UI
         const timeoutId = setTimeout(() => {
           if (!active) return;
-          dbg('⚠️ AuthProvider: TIMEOUT after 8s, forcing loading=false');
+          dbg('⚠️ AuthProvider: TIMEOUT after 20s, forcing loading=false');
           setLoading(false);
-        }, 8000);
+        }, 20000);
         // Get current session on mount
         supabaseClient.auth.getSession().then(async ({ data: { session }, error }) => {
           if (!active) return;
@@ -2405,6 +2424,12 @@
        ─────────────────────────────────────────────────────────── */
     const MissingProfileScreen = () => {
       const { profile, session, signOut } = useAuth();
+      const [retrying, setRetrying] = useState(false);
+      const handleRetry = async () => {
+        setRetrying(true);
+        dbg('Manual retry: reloading page');
+        location.reload();
+      };
       return (
         <div className="flex flex-col h-full max-w-[480px] mx-auto bg-white items-center justify-center px-6 text-center">
           <div className="w-16 h-16 rounded-2xl bg-warn/10 flex items-center justify-center mb-4">
@@ -2412,16 +2437,29 @@
           </div>
           <h2 className="text-xl font-bold text-slate-900">Profilo non configurato</h2>
           <p className="text-sm text-slate-500 mt-2 max-w-xs">
-            L'account <span className="font-medium text-slate-700">{session?.user?.email}</span> esiste ma non è associato a un ruolo.
-            <br /><br />
-            Contatta l'amministratore per essere aggiunto alla tabella <code className="bg-slate-100 px-1 rounded">app_users</code>.
+            L'account <span className="font-medium text-slate-700">{session?.user?.email}</span> non risulta associato a un ruolo, oppure la connessione a Supabase è lenta.
+          </p>
+          <p className="text-xs text-slate-400 mt-2 max-w-xs">
+            Prova a riprovare; se il problema persiste contatta l'amministratore.
           </p>
           <button
+            onClick={handleRetry}
+            disabled={retrying}
+            className="mt-6 px-6 py-3 rounded-full bg-primary-600 text-white font-semibold text-sm disabled:opacity-50"
+          >
+            {retrying ? 'Riprovo...' : 'Riprova'}
+          </button>
+          <button
             onClick={signOut}
-            className="mt-6 px-6 py-3 rounded-full bg-primary-600 text-white font-semibold text-sm"
+            className="mt-3 px-6 py-2 text-slate-500 text-sm"
           >
             Esci
           </button>
+          {DEBUG && (
+            <div className="mt-6 w-full max-h-48 overflow-y-auto bg-slate-900 text-emerald-300 font-mono text-[10px] leading-snug rounded-lg p-3 text-left">
+              {debugLog.map((l, i) => <div key={i}>{l}</div>)}
+            </div>
+          )}
         </div>
       );
     };
