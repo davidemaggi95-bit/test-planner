@@ -2087,15 +2087,18 @@
       // Load profile (role) for a given user
       const loadProfile = useCallback(async (userId) => {
         if (!userId) { setProfile(null); return; }
+        dbg('loadProfile: querying app_users for ' + userId);
         const { data, error } = await supabaseClient
           .from('app_users')
           .select('user_id, email, full_name, role')
           .eq('user_id', userId)
           .single();
         if (error) {
+          dbg('loadProfile ERR: ' + error.message);
           console.error('Profile load failed:', error.message);
           setProfile(null);
         } else {
+          dbg('loadProfile OK: role=' + data?.role);
           setProfile(data);
         }
       }, []);
@@ -2103,16 +2106,29 @@
       // Listen for auth changes
       useEffect(() => {
         let active = true;
+        dbg('AuthProvider: getSession() starting');
         // Get current session on mount
-        supabaseClient.auth.getSession().then(async ({ data: { session } }) => {
+        supabaseClient.auth.getSession().then(async ({ data: { session }, error }) => {
           if (!active) return;
+          if (error) dbg('AuthProvider: getSession ERR: ' + error.message);
+          dbg('AuthProvider: getSession done. session=' + (session ? session.user.email : 'null'));
           setSession(session);
-          if (session?.user) await loadProfile(session.user.id);
+          if (session?.user) {
+            dbg('AuthProvider: loading profile for ' + session.user.email);
+            await loadProfile(session.user.id);
+            dbg('AuthProvider: profile loaded');
+          }
+          setLoading(false);
+          dbg('AuthProvider: loading=false');
+        }).catch(e => {
+          if (!active) return;
+          dbg('AuthProvider: getSession CATCH: ' + (e.message || e));
           setLoading(false);
         });
         // Subscribe to future changes
         const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(async (_event, newSession) => {
           if (!active) return;
+          dbg('Auth event: ' + _event + ' session=' + (newSession ? newSession.user.email : 'null'));
           setSession(newSession);
           if (newSession?.user) await loadProfile(newSession.user.id);
           else setProfile(null);
@@ -2162,11 +2178,13 @@
 
       useEffect(() => {
         if (!session) {
+          dbg('DataProvider: no session, clearing');
           setReservations([]); setProperties([]); setLoading(false);
           return;
         }
         let cancelled = false;
         (async () => {
+          dbg('DataProvider: loading data...');
           setLoading(true);
           setError(null);
           try {
@@ -2176,10 +2194,12 @@
               fetchProperties(),
             ]);
             if (cancelled) return;
+            dbg(`DataProvider: loaded ${resv.length} reservations, ${props.length} properties`);
             setReservations(resv);
             setProperties(props);
           } catch (err) {
             if (!cancelled) {
+              dbg('DataProvider ERR: ' + (err.message || err));
               console.error('Data load failed:', err);
               setError(err.message || 'Errore caricamento dati');
             }
@@ -2318,12 +2338,47 @@
     /* ─────────────────────────────────────────────────────────────
        LOADING SCREEN — shown while auth state is loading
        ─────────────────────────────────────────────────────────── */
-    const LoadingScreen = () => (
-      <div className="flex flex-col h-full max-w-[480px] mx-auto bg-white items-center justify-center">
-        <div className="w-12 h-12 rounded-full border-4 border-primary-100 border-t-primary-600 animate-spin" />
-        <p className="mt-4 text-sm text-slate-500">Caricamento...</p>
-      </div>
-    );
+    /* ─────────────────────────────────────────────────────────────
+       GLOBAL DIAGNOSTIC STATE — visible on screen for remote debugging
+       Toggle DEBUG = false in production
+       ─────────────────────────────────────────────────────────── */
+    const DEBUG = true;
+    const debugLog = [];
+    const dbg = (msg) => {
+      const t = new Date().toLocaleTimeString('it-IT');
+      debugLog.push(`[${t}] ${msg}`);
+      if (debugLog.length > 30) debugLog.shift();
+      if (window.__dbgPaint) window.__dbgPaint();
+      console.log('[PMS]', msg);
+    };
+    // Catch any uncaught error globally and show it
+    window.addEventListener('error', (e) => {
+      dbg('❌ ERR: ' + (e.message || e.error?.message || 'unknown'));
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      dbg('❌ PROMISE REJ: ' + (e.reason?.message || e.reason || 'unknown'));
+    });
+    dbg('Script start: DOM ready, Babel running');
+
+    const LoadingScreen = () => {
+      const [, force] = useState(0);
+      useEffect(() => {
+        window.__dbgPaint = () => force(t => t + 1);
+        return () => { window.__dbgPaint = null; };
+      }, []);
+      return (
+        <div className="flex flex-col h-full max-w-[480px] mx-auto bg-white items-center justify-center px-4">
+          <div className="w-12 h-12 rounded-full border-4 border-primary-100 border-t-primary-600 animate-spin" />
+          <p className="mt-4 text-sm text-slate-500">Caricamento...</p>
+          {DEBUG && (
+            <div className="mt-6 w-full max-h-64 overflow-y-auto bg-slate-900 text-emerald-300 font-mono text-[10px] leading-snug rounded-lg p-3">
+              {debugLog.length === 0 ? <div className="text-slate-500">In attesa di log…</div> :
+                debugLog.map((l, i) => <div key={i}>{l}</div>)}
+            </div>
+          )}
+        </div>
+      );
+    };
 
     /* ─────────────────────────────────────────────────────────────
        MISSING PROFILE SCREEN — user exists in auth but not in app_users
@@ -2442,6 +2497,7 @@
       return <AppShell />;
     };
 
+    dbg('Mounting React app');
     ReactDOM.createRoot(document.getElementById('root')).render(
       <AuthProvider>
         <DataProvider>
