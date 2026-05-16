@@ -2404,9 +2404,9 @@
        ─────────────────────────────────────────────────────────── */
     /* ─────────────────────────────────────────────────────────────
        GLOBAL DIAGNOSTIC STATE — visible on screen for remote debugging
-       Toggle DEBUG = false in production
+       Toggle DEBUG = false in production (logs still go to console.log)
        ─────────────────────────────────────────────────────────── */
-    const DEBUG = true;
+    const DEBUG = false;
     const debugLog = [];
     const dbg = (msg) => {
       const t = new Date().toLocaleTimeString('it-IT');
