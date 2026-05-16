@@ -1196,7 +1196,26 @@
        CALENDARI — vista esterna (lista appartamenti)
        ─────────────────────────────────────────────────────────── */
 
-    // Mock gradient thumbnails — color derived from apt id for visual variety
+    // Gradient palette — deterministically picked per apartment from its id (string hash)
+    const APT_GRADIENT_PALETTE = [
+      'from-rose-400 to-pink-500',
+      'from-amber-400 to-orange-500',
+      'from-emerald-400 to-teal-500',
+      'from-sky-400 to-blue-500',
+      'from-violet-400 to-purple-500',
+      'from-cyan-400 to-blue-500',
+      'from-fuchsia-400 to-pink-500',
+      'from-lime-400 to-green-500',
+      'from-indigo-400 to-blue-600',
+    ];
+    const gradientFor = (id) => {
+      const s = String(id || '');
+      let h = 0;
+      for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+      const idx = Math.abs(h) % APT_GRADIENT_PALETTE.length;
+      return APT_GRADIENT_PALETTE[idx];
+    };
+    // Backwards compat — old mock keys
     const APT_GRADIENTS = {
       a1: 'from-rose-400 to-pink-500',
       a2: 'from-amber-400 to-orange-500',
@@ -1246,7 +1265,7 @@
           <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-3">
             {apts.map(apt => {
               const strip = buildStrip(apt.id);
-              const gradient = APT_GRADIENTS[apt.id] || 'from-slate-400 to-slate-500';
+              const gradient = APT_GRADIENTS[apt.id] || gradientFor(apt.id);
               return (
                 <button
                   key={apt.id}
@@ -2229,19 +2248,21 @@
           ]);
         };
         dbg('loadProfile: querying app_users for ' + userId);
+        // Progressive timeouts: fast retry on first failure, then longer
+        const timeouts = [4000, 6000, 10000];
         let result = null;
-        for (let attempt = 1; attempt <= 3; attempt++) {
+        for (let attempt = 1; attempt <= timeouts.length; attempt++) {
           try {
-            result = await tryWithTimeout(10000);
+            result = await tryWithTimeout(timeouts[attempt - 1]);
             break;
           } catch (e) {
-            dbg(`loadProfile: attempt ${attempt}/3 failed (${e.message || e})`);
-            if (attempt === 3) {
+            dbg(`loadProfile: attempt ${attempt}/${timeouts.length} failed (${e.message || e})`);
+            if (attempt === timeouts.length) {
               setProfile(null);
               return;
             }
             // Brief delay before retry
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise(r => setTimeout(r, 300));
           }
         }
         const { data, error } = result;
@@ -2258,6 +2279,7 @@
       // Listen for auth changes
       useEffect(() => {
         let active = true;
+        let hasInitialized = false;
         dbg('AuthProvider: getSession() starting');
         // Safety timeout: if nothing happens in 20s, unblock the UI
         const timeoutId = setTimeout(() => {
@@ -2280,18 +2302,30 @@
               dbg('AuthProvider: loadProfile CATCH: ' + (e.message || e));
             }
           }
+          hasInitialized = true;
           clearTimeout(timeoutId);
           setLoading(false);
           dbg('AuthProvider: loading=false');
         }).catch(e => {
           if (!active) return;
           dbg('AuthProvider: getSession CATCH: ' + (e.message || e));
+          hasInitialized = true;
           clearTimeout(timeoutId);
           setLoading(false);
         });
-        // Subscribe to future changes
+        // Subscribe to future changes — but skip INITIAL_SESSION (handled by getSession above)
         const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(async (_event, newSession) => {
           if (!active) return;
+          // Skip INITIAL_SESSION — it's redundant with getSession() and causes double loadProfile
+          if (_event === 'INITIAL_SESSION') {
+            dbg('Auth event: INITIAL_SESSION (skipped, already handled)');
+            return;
+          }
+          // Skip events that fire before initialization completes
+          if (!hasInitialized) {
+            dbg('Auth event: ' + _event + ' (skipped, init not complete)');
+            return;
+          }
           dbg('Auth event: ' + _event + ' session=' + (newSession ? newSession.user.email : 'null'));
           setSession(newSession);
           if (newSession?.user) {
